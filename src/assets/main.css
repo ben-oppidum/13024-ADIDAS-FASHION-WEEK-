@@ -1,0 +1,45 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "./primevue/css/tailwind.css";
+@import "tailwindcss/utilities";
+
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Global */
+body { @apply text-black text-sm }
+p { @apply text-gray-500 }
+.page-wrap { @apply py-6 }
+h1, h2, h3, h4, h5, h6 { @apply font-semibold }
+
+/* Forms */
+.form-group { @apply my-4 }
+.form-group.form-submit { @apply flex justify-center !mt-10 }
+.formkit-inner { @apply relative }
+.form-label, .formkit-label { @apply text-gray-900 text-sm font-semibold mb-1 block }
+
+.form-input:not([type='checkbox']), .formkit-input:not([type='checkbox']) { @apply w-full min-h-[2rem] py-3 px-4 rounded-md bg-white border border-gray-200 } 
+.form-input:disabled, .formkit-input:disabled { @apply bg-white cursor-not-allowed opacity-50 } 
+.formkit-input:focus-visible, .form-input:focus-visible, select:focus-visible, textarea:focus-visible { @apply !outline-none border-primary }
+.formkit-outer[data-invalid="true"] .formkit-input { @apply border-red-500 }
+.form-input.active, .formkit-input.active, .input-active { @apply !border-2 !border-gray-400 }
+.has-indication { @apply w-full }
+.has-indication .form-input, .has-indication .formkit-input { @apply border-r-0 rounded-r-none }
+.form-input-indication { @apply bg-gray-100 border-t border-r border-b border-gray-200 rounded-r-md flex items-center min-h-[2.75rem] p-[0.938rem] }
+
+select.form-input, select.formkit-input { @apply bg-[url('./chevron.svg')] bg-no-repeat bg-[97%_center] bg-[length:18px_18px] !pr-[1.8rem] }
+textarea.form-input, textarea.formkit-input { @apply !min-h-[200px] }
+.textarea-small textarea.form-input, .textarea-small textarea.formkit-input { @apply !min-h-[100px] }
+
+.formkit-messages { @apply text-red-500 pt-1 text-xs leading-tight }
+.formkit-messages .formkit-message:not([data-message-type="validation"]) { @apply text-red-500 pt-3 text-sm text-center font-semibold }
+.formkit-icon { @apply absolute right-4 w-5 h-5 cursor-pointer top-2/4 -translate-y-2/4 text-gray-500 }
+.formkit-help { @apply text-sm mt-1 }
+
+/* ___ IOS ___ */
+input, textarea, select { 
+    -webkit-appearance: none;
+    -moz-appearance: none;
+} 
