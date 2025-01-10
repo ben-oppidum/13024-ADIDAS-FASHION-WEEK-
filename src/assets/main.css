@@ -15,12 +15,14 @@ p { @apply text-gray-500 }
 h1, h2, h3, h4, h5, h6 { @apply font-semibold }
 
 /* Forms */
-.form-group { @apply my-4 }
+.form-group { @apply mb-4 }
 .form-group.form-submit { @apply flex justify-center !mt-10 }
 .formkit-inner { @apply relative }
 .form-label, .formkit-label { @apply text-gray-900 text-sm font-semibold mb-1 block }
 
-.form-input:not([type='checkbox']), .formkit-input:not([type='checkbox']) { @apply w-full min-h-[2rem] py-3 px-4 rounded-md bg-white border border-gray-200 } 
+.form-input:not([type='checkbox']):not([type='radio']),
+.formkit-input:not([type='checkbox']):not([type='radio'])
+{ @apply w-full min-h-[2rem] py-2 px-3 rounded-md bg-white border border-gray-200 } 
 .form-input:disabled, .formkit-input:disabled { @apply bg-white cursor-not-allowed opacity-50 } 
 .formkit-input:focus-visible, .form-input:focus-visible, select:focus-visible, textarea:focus-visible { @apply !outline-none border-primary }
 .formkit-outer[data-invalid="true"] .formkit-input { @apply border-red-500 }
@@ -28,8 +30,9 @@ h1, h2, h3, h4, h5, h6 { @apply font-semibold }
 .has-indication { @apply w-full }
 .has-indication .form-input, .has-indication .formkit-input { @apply border-r-0 rounded-r-none }
 .form-input-indication { @apply bg-gray-100 border-t border-r border-b border-gray-200 rounded-r-md flex items-center min-h-[2.75rem] p-[0.938rem] }
+.form-input.form-input-small { @apply py-2 px-3 min-h-[1.5rem] text-xs }
 
-select.form-input, select.formkit-input { @apply bg-[url('./chevron.svg')] bg-no-repeat bg-[97%_center] bg-[length:18px_18px] !pr-[1.8rem] }
+select.form-input, select.formkit-input { @apply bg-[url('./assets/chevron-down.svg')] bg-no-repeat bg-[97%_center] bg-[length:18px_18px] !pr-[1.8rem] }
 textarea.form-input, textarea.formkit-input { @apply !min-h-[200px] }
 .textarea-small textarea.form-input, .textarea-small textarea.formkit-input { @apply !min-h-[100px] }
 
@@ -43,3 +46,21 @@ input, textarea, select {
     -webkit-appearance: none;
     -moz-appearance: none;
 } 
+
+/* Badge */
+.badge { @apply rounded-full py-1.5 px-3 border text-xs inline-block font-semibold }
+
+/* Area Class */
+.showroom { @apply bg-violet-50 border-violet-200 text-violet-900 }
+.meeting { @apply bg-fuchsia-50 border-fuchsia-200 text-fuchsia-900 }
+.fi { @apply bg-blue-50 border-blue-200 text-blue-900 }
+.ogla { @apply bg-pink-50 border-pink-200 text-pink-900 }
+
+/* List */
+.list { @apply divide-y divide-gray-200 text-gray-600 }
+.list li { @apply py-1 flex justify-between }
+.list li span { @apply last:font-semibold }
+
+/* Drawer Title */
+.drawer-section-title { @apply relative text-primary mb-2 pb-1 before:content-[''] before:absolute before:top-2/4 before:-mt-1 before:w-full before:h-0.5 before:bg-gradient-to-r before:from-gray-300 }
+.drawer-section-title span { @apply relative z-10 bg-white pr-4 inline-flex items-center gap-x-2 }

@@ -21,6 +21,18 @@ const router = createRouter({
             beforeEnter: getAuth,
             component: () => import('../views/HomeView.vue'),
         },
+        {
+            path: '/todo',
+            name: 'todo',
+            beforeEnter: getAuth,
+            component: () => import('../views/TodoListView.vue'),
+        },
+        {
+            path: '/contacts',
+            name: 'contacts',
+            beforeEnter: getAuth,
+            component: () => import('../views/ContactsView.vue'),
+        },
     ],
 })
 

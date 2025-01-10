@@ -40,6 +40,9 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    // Check if the user is an Admin
+    const isAdmin = computed(() => user.value?.role_id === 1 ? true : false)
+
     // Set Logout Function
     const setLogOut = () => {
         console.log('Logeed');
@@ -47,5 +50,5 @@ export const useAuthStore = defineStore('auth', () => {
         window.location.href = "/login"
     }
 
-    return { user, getAuth, setAuth, setLogOut }
+    return { user, isAdmin, getAuth, setAuth, setLogOut }
 })

@@ -37,6 +37,9 @@ export default {
                     950: '#030712'
                 },
             },
+            gridTemplateColumns: {
+                '14': 'repeat(14, minmax(0, 1fr))',
+            }
         }
     },
     plugins: [],

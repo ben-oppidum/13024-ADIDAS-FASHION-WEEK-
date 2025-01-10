@@ -1,29 +1,29 @@
 @import './common';
 
 /* Form */
-/* @import './autocomplete'; */
+@import './autocomplete';
 /* @import './cascadeselect'; */
 @import './checkbox';
 /* @import './colorpicker'; */
 /* @import './datepicker'; */
-/* @import './iconfield'; */
+@import './iconfield';
 /* @import './iftalabel'; */
 /* @import './inputgroup'; */
 /* @import './inputnumber'; */
 /* @import './inputotp'; */
-/* @import './inputtext'; */
+@import './inputtext';
 /* @import './floatlabel'; */
 /* @import './knob'; */
 /* @import './listbox'; */
 /* @import './multiselect'; */
 /* @import './password'; */
-/* @import './radiobutton'; */
+@import './radiobutton';
 /* @import './rating'; */
 @import './select';
 /* @import './selectbutton'; */
 /* @import './slider'; */
 /* @import './textarea'; */
-/* @import './togglebutton'; */
+@import './togglebutton';
 /* @import './toggleswitch'; */
 /* @import './treeselect'; */
 
@@ -79,7 +79,7 @@
 
 /* Message */
 @import './message';
-/* @import './toast'; */
+@import './toast';
 
 /* Media */
 /* @import './carousel'; */
@@ -96,7 +96,7 @@
 /* @import './metergroup'; */
 /* @import './overlaybadge'; */
 /* @import './progressbar'; */
-/* @import './progressspinner'; */
+@import './progressspinner';
 /* @import './ripple'; */
 /* @import './scrolltop'; */
 @import './skeleton';

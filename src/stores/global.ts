@@ -7,5 +7,14 @@ export const useGlobalStore = defineStore('global', () => {
         mode: '',
     })
 
-    return { appConfig }
+    const roles = [
+        { id: 1, name: 'Admin' },
+        { id: 2, name: 'Sales Market Internal' },
+        { id: 3, name: 'Sales LFS Internal' },
+        { id: 4, name: 'Reception' },
+        { id: 5, name: 'Global Internal' },
+        { id: 6, name: 'Client' },
+    ]
+
+    return { appConfig, roles }
 })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useRoute } from 'vue-router'
 import Avatar from 'primevue/avatar'
@@ -7,15 +7,7 @@ import Popover from 'primevue/popover'
 import { useConfirm } from "primevue/useconfirm"
 
 import { useAuthStore } from '@/stores/auth'
-
-defineProps<{
-    logoOnly?: boolean
-}>()
-
-// Global
-const authStore = useAuthStore()
-const route = useRoute()
-const confirm = useConfirm()
+import { getRoleName } from '@/functions/'
 
 // TS
 interface Navigation {
@@ -24,13 +16,16 @@ interface Navigation {
     path: string;
 }
 
+// Global
+const authStore = useAuthStore()
+const route = useRoute()
+const confirm = useConfirm()
+defineProps<{
+    logoOnly?: boolean
+}>()
+
 // Navigation
 const navigation: Ref<Navigation[]> = ref([
-    {
-        routeName: 'todo',
-        label: 'To-Do List',
-        path: '/todo',
-    },
     {
         routeName: 'home',
         label: 'Calendar',
@@ -42,6 +37,30 @@ const navigation: Ref<Navigation[]> = ref([
         path: '/contacts',
     },
 ])
+
+// Add Todo List to Navigation
+watch(
+    () => authStore.isAdmin,
+    (newValue) => {
+        if(newValue) {
+            navigation.value.unshift({
+                routeName: 'todo',
+                label: 'To-Do List',
+                path: '/todo',
+            })
+        }
+    },
+    { immediate: true }
+);
+// onMounted(() => {
+//     if(authStore.isAdmin) {
+//         navigation.value.unshift({
+//             routeName: 'todo',
+//             label: 'To-Do List',
+//             path: '/todo',
+//         })
+//     }
+// })
 
 // Panel
 const panel = ref()
@@ -70,6 +89,17 @@ const setLogOut = () => {
         reject: () => {}
     });
 }
+
+// Create ShortName
+const shortName = computed(() => {
+    if(authStore.user) {
+        const firstNameLetter = authStore.user.first_name.charAt(0);
+        const lastNameLetter = authStore.user.last_name.charAt(0);
+
+        return firstNameLetter + lastNameLetter
+    }
+    return ''
+})
 </script>
 
 <template>
@@ -91,17 +121,17 @@ const setLogOut = () => {
                     {{ item.label }}
                 </router-link>
             </nav>
-            <button type="button" @click="togglePanel" class="flex items-center justify-end text-left">
+            <button v-if="authStore.user" type="button" @click="togglePanel" class="flex items-center justify-end text-left">
                 <Avatar 
-                    label="JS" 
+                    :label="shortName" 
                     class="mr-2" 
                     size="large" 
                     shape="circle" 
                     style="background-color: #FFF; color: #000" 
                 />
                 <div>
-                    <span class="block leading-none">John Smith</span>
-                    <span class="block leading-none text-gray-400 mt-0.5">Admin</span>
+                    <span class="block leading-none">{{ `${authStore.user.first_name} ${authStore.user.last_name}` }}</span>
+                    <span class="block leading-none text-gray-400 mt-0.5">{{ getRoleName(authStore.user.role_id) }}</span>
                 </div>
                 <i class="pi pi-chevron-down ml-5"></i>
             </button>

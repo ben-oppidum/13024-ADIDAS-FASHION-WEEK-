@@ -1,5 +1,5 @@
 .p-tooltip {
-    @apply absolute hidden max-w-48
+    @apply absolute hidden max-w-48 text-xs text-center
 }
 
 .p-tooltip-right,

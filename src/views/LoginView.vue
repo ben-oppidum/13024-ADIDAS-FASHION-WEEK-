@@ -70,7 +70,7 @@ const setLogin = async () => {
             <div class="max-w-lg mx-auto -mt-24">
                 <h1 class="text-4xl text-center mb-6">Login</h1>
                 <div class="p-4 bg-white border border-gray-200 rounded-lg">
-                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Veritatis, quisquam.</p>
+                    <p class="mb-4">Lorem ipsum dolor sit amet consectetur adipisicing elit. Veritatis, quisquam.</p>
                     <FormKit type="form" @submit="setLogin" :actions="false">
                         <div class="form-group">
                             <FormKit
