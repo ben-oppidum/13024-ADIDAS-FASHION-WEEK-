@@ -432,3 +432,11 @@
 .table-guests .p-datatable-header-cell, .table-guests .p-datatable-tbody > tr {
     @apply !bg-transparent
 }
+
+.p-datatable .empty-data {
+    @apply text-center py-16 flex items-center justify-center flex-col gap-y-5
+}
+
+.p-datatable .empty-data .pi {
+    @apply !text-5xl text-gray-200 
+}

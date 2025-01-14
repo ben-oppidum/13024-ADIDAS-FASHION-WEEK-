@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import axios from 'axios'
 import { useToast } from "primevue/usetoast"
 
 import { useAreas } from '@/composables/useAreas'
-import { useUsers } from '@/composables/useUsers'
 import { useExternalAccount } from '@/composables/useExternalAccount'
 
 import type { UseAreasReturn } from '@/composables/useAreas'
-import type { UseUsersReturn } from '@/composables/useUsers'
 import type { UseExternalAccountReturn } from '@/composables/useExternalAccount'
 import type { UserSmall } from '@/interfaces/user-small'
 import type { Meeting } from '@/interfaces/meeting'
@@ -20,6 +18,8 @@ import { telegramBot } from '@/functions/telegramBot'
 import { endPoint } from '@/stores/environment'
 
 import UsersSearch from '@/components/UsersSearch.vue'
+import SelectOrganizer from '@/components/SelectOrganizer.vue'
+import SelectExAccount from '@/components/SelectExAccount.vue'
 
 // Global
 const authStore = useAuthStore()
@@ -46,7 +46,7 @@ onMounted(() => {
 const submitButton = computed(() => {
     if(props.method === 'edit') {
         return {
-            label: 'Edit meeting',
+            label: 'Update meeting',
             icon: 'pi pi-pencil'
         }
     }
@@ -67,52 +67,74 @@ const submitButton = computed(() => {
 // Get Areas
 const { areas, loading: loadingAreas }: UseAreasReturn = useAreas(true)
 
-// Get Organizer Users 
-const { users: organizers, loading: loadingUsers, getUsers }: UseUsersReturn = useUsers(false)
-onMounted(async () => { await getUsers('role=2, 3&less=true') })
-
 // Get External Account
-const { externalAccounts, loading: loadingExAccount }: UseExternalAccountReturn = useExternalAccount(true)
+const { externalAccounts, getExternalAccount }: UseExternalAccountReturn = useExternalAccount(false)
 
 // Get External Account Clients
 const guestsSelectorKey = ref(0);
 const exAccountClients = ref<UserSmall[] | null>(null)
-const getExternalClients = () => {
-    // Reser Values first
-    exAccountClients.value = null
-    mergedGuestsList.value = []
-    guestsList1.value = []
-    guestsList2.value = []
-    guestsSelectorKey.value++; 
+const getExternalClients = async () => {
+    await getExternalAccount();
 
-    let clients:UserSmall[] = []
-    const selectedExAccount = +state.value.externalAccount
+    // Reset Values first
+    exAccountClients.value = null;
+    mergedGuestsList.value = [];
+    guestsList1.value = [];
+    guestsList2.value = [];
+    guestsSelectorKey.value++;
 
-    externalAccounts.value && externalAccounts.value.forEach(account => {
-        if(account.id === selectedExAccount) account.clients && clients.push(...account.clients)
-    });
+    let clients: UserSmall[] = [];
+    const selectedExAccounts = state.value.externalAccount as number[];
 
-    exAccountClients.value = clients
-}
+    if (externalAccounts.value) {
+        externalAccounts.value.forEach(account => {
+            if (selectedExAccounts.includes(account.id)) {
+                if (account.clients) {
+                    clients.push(...account.clients);
+                }
+            }
+        });
+    }
+
+    exAccountClients.value = clients;
+};
+
+// const getExternalClients = async () => {
+//     await getExternalAccount()
+
+//     // Reser Values first
+//     exAccountClients.value = null
+//     mergedGuestsList.value = []
+//     guestsList1.value = []
+//     guestsList2.value = []
+//     guestsSelectorKey.value++; 
+
+//     let clients:UserSmall[] = []
+//     const selectedExAccount = +state.value.externalAccount
+
+//     externalAccounts.value && externalAccounts.value.forEach(account => {
+//         if(account.id === selectedExAccount) account.clients && clients.push(...account.clients)
+//     });
+
+//     exAccountClients.value = clients
+// }
 
 // Today date
-const today = new Date();
-const todayDate = today.toISOString().split('T')[0];
+const minDate = '2025-01-20';
 
 // State
 const required = 'Required field'
 const state = ref({
     title: '',
     area: '',
-    organizer: '',
-    externalAccount: '',
+    organizer: 0,
+    externalAccount: [],
     startDate: '',
     startHour: '',
     endDate: '',
     endHour: '',
     guests: [] as number[],
     internalComment: '',
-    guestComment: ''
 })
 
 const mergedGuestsList = ref<number[]>([]);
@@ -166,10 +188,9 @@ const removeGuest = (selectedId:number, guestList:number) => {
 // Fill the form if the method is Edit
 onMounted(() => {
     if(props.meeting && props.method === 'edit') {
-        console.log(props.meeting);
         props.meeting.title ? state.value.title = props.meeting.title : ''
         props.meeting.area_id ? state.value.area = props.meeting.area_id.toString() : ''
-        props.meeting.organizer ? state.value.organizer = props.meeting.organizer.id.toString() : ''
+        props.meeting.organizer ? state.value.organizer = props.meeting.organizer.id : ''
         
         props.meeting.start_date ? state.value.startDate = formatDate(props.meeting.start_date, 'YYYY-MM-DD') : ''
         props.meeting.start_date ? state.value.startHour = formatDate(props.meeting.start_date, 'HH:mm') : ''
@@ -177,7 +198,6 @@ onMounted(() => {
         props.meeting.end_date ? state.value.endHour = formatDate(props.meeting.end_date, 'HH:mm') : ''
 
         props.meeting.internal_comment ? state.value.internalComment = props.meeting.internal_comment : ''
-        props.meeting.client_comment ? state.value.guestComment = props.meeting.client_comment : ''
     }
 })
 
@@ -190,11 +210,13 @@ watch(state.value, (newState) => {
 })
 
 // Submit Meeting
+const loading = ref<boolean>(false)
 const errorMessage = ref<string | null>(null)
 const emit = defineEmits(['updateDialog'])
 
 const submitHandler = async () => {
     let formData = new FormData();
+    loading.value = true
 
     const startDateTime = convertToIso(state.value.startDate, state.value.startHour)
     const endDateTime = convertToIso(state.value.startDate, state.value.endHour)
@@ -205,43 +227,55 @@ const submitHandler = async () => {
         return authStore.user?.id || null;
     };
 
+    const acc = state.value.externalAccount[0]
+
     formData.append('title', state.value.title);
     formData.append('start_date', startDateTime);
     formData.append('end_date', endDateTime);
     formData.append('area_id', state.value.area);
     formData.append('organizer_id', String(setOrganizer() ?? ''));
-    formData.append('external_account_id', state.value.externalAccount);
-    formData.append('guests', JSON.stringify(mergedGuestsList.value));
+    if(props.method === 'add') { 
+        formData.append('external_account_id', acc);
+        formData.append('guests', JSON.stringify(mergedGuestsList.value)) 
+    }
     formData.append('internal_comment', state.value.internalComment);
-    formData.append('client_comment', state.value.guestComment);
 
     try {
         // If Method is ADD
         if(props.method === 'add') {
             const response = await axios.post(endPoint.meetings, formData, header)
             if(response.data && response.data.message) {
-                emit("updateDialog", response.data.message);
-                const meetingId = response.data.meeting_id
+                setTimeout(async () => {
 
-                // Send Notificatio To Telegram
-                authStore.isAdmin ? await telegramBot('meetingCreated', meetingId) : await telegramBot('meetingNeedApproval', meetingId)
+                    emit("updateDialog", response.data.message);
+                    const meetingId = response.data.meeting_id
+
+                    // Send Notificatio To Telegram
+                    authStore.isAdmin ? await telegramBot('meetingCreated', meetingId) : await telegramBot('meetingNeedApproval', meetingId)
+
+                }, 2000);
             }
         }
 
         // If Method is EDIT
         if(props.method === 'edit' && props.meeting) {
             const meetingId = props.meeting.meeting_id
-            const response = await axios.put(`${endPoint.meetings}/${meetingId}`, formData, header)
+            const response = await axios.put(`${endPoint.meetings}/${meetingId}/edit`, formData, header)
             if(response.data && response.data.message) {
-                emit("updateDialog", response.data.message);
+                setTimeout(async () => {
+                    
+                    emit("updateDialog", response.data.message);
 
-                // Send Notificatio To Telegram
-                await telegramBot('meetingEdited', meetingId)
+                    // Send Notificatio To Telegram
+                    await telegramBot('meetingEdited', meetingId)
+
+                }, 2000);
             }
         }
     } catch (error) {
         if (axios.isAxiosError(error) && error.response && error.response.data) errorMessage.value = error.response.data.message
-    }
+        loading.value = false
+    } 
 }
 </script>
 
@@ -255,8 +289,6 @@ const submitHandler = async () => {
                     label="Title"
                     placeholder="Title"
                     v-model="state.title"
-                    validation="required"
-                    :validation-messages="{ required }"
                 />
             </div>
             <div class="form-group">
@@ -273,85 +305,67 @@ const submitHandler = async () => {
                 </FormKit>
             </div>
 
-            <div class="form-group" v-if="authStore.isAdmin">
-                <FormKit
-                    type="select"
-                    name="organizer"
-                    label="Organizer"
-                    v-model="state.organizer"
-                    validation="required"
-                    :validation-messages="{ required }"
-                >
-                    <option value="" selected disabled>{{ `${loadingAreas ? 'Loading ...' : 'Select an Organizer'}` }}</option>
-                    <option v-for="organizer in organizers" :key="organizer.id" :value="organizer.id">{{ `${organizer.first_name} ${organizer.last_name}` }}</option>
-                </FormKit>
-            </div>
-            <div v-if="authStore.isAdmin"></div>
-
-            <template v-if="method === 'add'">
-                <div class="mb-4">
-                    <label class="form-label">External Account</label>
-                    <Select 
-                        v-model="state.externalAccount" 
-                        :options="externalAccounts || []" 
-                        filter 
-                        optionLabel="label" 
-                        optionValue="id" 
-                        placeholder="External Account"
-                        fluid
-                        @change="getExternalClients"
-                    />
+            <template v-if="authStore.isAdmin">
+                <div class="form-group">
+                    <label class="form-label">Organizer</label>
+                    <SelectOrganizer v-model="state.organizer" />
                 </div>
                 <div></div>
+            </template>
 
-                <div v-if="exAccountClients" class="col-span-2 mb-4 grid grid-cols-2 gap-x-6">
-                    <h6 class="form-label">Global Internal, Sales</h6>
-                    <h6 class="form-label">Invited Guests ({{ mergedGuestsListLength }})</h6>
+            <template v-if="method === 'add'">
+                <div class="guests-wrapper">
+                    <div>
+                        <label class="form-label">Select guests from an External Account</label>
+                        <SelectExAccount type="multiselect" v-model="state.externalAccount" @change="getExternalClients" />
+                    </div>
 
-                    <div class="guests-wrapper">
+                    <!-- My clients [List 1] -->
+                    <figure v-if="exAccountClients">
+                        <span class="font-semibold block text-black pb-1 mb-3 border-b border-gray-300">Invited Guests ({{ guestsList1Length }})</span>
+                        <div class="flex gap-y-2 flex-col">
+                            <button 
+                                type="button" 
+                                class="flex items-center gap-2 group"
+                                v-for="client in guestsList1" 
+                                :key="client.id"
+                                @click="removeGuest(client.user_id, 1)"
+                            >
+                                <i class="pi pi-trash text-red-500"></i>
+                                <span class="block leading-none group-hover:text-red-500 font-semibold line-clamp-1">{{ client.user_id }} - {{ userSearchDisplay(client) }}</span>
+                            </button>
+                        </div>
+                    </figure>
+                </div>
+
+                <div class="guests-wrapper">
+                    <div>
+                        <span class="font-semibold block text-black pb-1">Select a guest</span>
                         <UsersSearch :guests-list="mergedGuestsList" @update-selected-guests="getSelectedGuests" />
                     </div>
 
-                    <div class="guests-wrapper">
-
-                        <!-- Guest List 1 -->
-                        <figure>
-                            <span class="font-semibold block text-black pb-1 mb-3 border-b border-gray-300">My clients ({{ guestsList1Length }})</span>
-                            <div class="flex gap-y-2 flex-col">
-                                <!-- For Admin -->
-                                <button 
-                                    type="button" 
-                                    class="flex items-center gap-2 group"
-                                    v-for="client in guestsList1" 
-                                    :key="client.id"
-                                    @click="removeGuest(client.user_id, 1)"
-                                >
-                                    <i class="pi pi-trash text-red-500"></i>
-                                    <span class="block leading-none group-hover:text-red-500 font-semibold line-clamp-1">{{ client.user_id }} - {{ userSearchDisplay(client) }}</span>
-                                </button>
-                            </div>
-                        </figure>
-
-                        <!-- Guest List 2 -->
-                        <figure>
-                            <span class="font-semibold block text-black pb-1 mb-3 border-b border-gray-300">Added guests ({{ guestsList2Length }})</span>
-                            <div class="flex gap-y-2 flex-col">
-                                <button 
-                                    type="button" 
-                                    class="flex items-center gap-2 group"
-                                    v-for="client in guestsList2" 
-                                    :key="client.id"
-                                    @click="removeGuest(client.id, 2)"
-                                >
-                                    <i class="pi pi-trash text-red-500"></i>
-                                    <span class="block leading-none group-hover:text-red-500 font-semibold line-clamp-1">{{ client.id }} - {{ userSearchDisplay(client) }}</span>
-                                </button>
-                            </div>
-                        </figure>
-                    </div>
-
-                    <Toast position="top-center" group="guestDeleted" />
+                    <!-- Added Guest [List 2] -->
+                    <figure>
+                        <span class="font-semibold block text-black pb-1 mb-3 border-b border-gray-300">Added guests ({{ guestsList2Length }})</span>
+                        <div class="flex gap-y-2 flex-col">
+                            <button 
+                                type="button" 
+                                class="flex items-center gap-2 group"
+                                v-for="client in guestsList2" 
+                                :key="client.id"
+                                @click="removeGuest(client.id, 2)"
+                            >
+                                <i class="pi pi-trash text-red-500"></i>
+                                <span class="block leading-none group-hover:text-red-500 font-semibold line-clamp-1">{{ client.id }} - {{ userSearchDisplay(client) }}</span>
+                            </button>
+                        </div>
+                    </figure>
                 </div>
+
+                <div class="col-span-2 text-gray-500 text-xs -mt-2 mb-4">Total guests : {{ mergedGuestsListLength }}</div>
+
+                <Toast position="top-center" group="guestDeleted" />
+
             </template>
 
             <div class="form-group">
@@ -360,10 +374,10 @@ const submitHandler = async () => {
                     name="startDate"
                     label="Date"
                     v-model="state.startDate"
-                    :validation="`required|date_after_or_equal:${todayDate}`"
+                    :validation="`required|date_after_or_equal:${minDate}`"
                     :validation-messages="{ 
                         required,
-                        date_after_or_equal: 'Date must be after or today date'
+                        date_after_or_equal: 'Date must be after or equal 20 January 2025'
                     }"
                 />
             </div>
@@ -399,16 +413,6 @@ const submitHandler = async () => {
                     outer-class="textarea-small"
                 />
             </div>
-            <div class="form-group">
-                <FormKit
-                    type="textarea"
-                    name="guestComment"
-                    label="Guest's comment"
-                    placeholder="Type your comment here"
-                    v-model="state.guestComment"
-                    outer-class="textarea-small"
-                />
-            </div>
         </div>
 
         <Message v-if="areaMessage" severity="warn" class="mt-3">{{ areaMessage }}</Message>
@@ -420,6 +424,7 @@ const submitHandler = async () => {
                 :icon="submitButton.icon"
                 iconPos="right"
                 type="submit" 
+                :loading="loading"
             />
             <p v-if="!authStore.isAdmin" class="mt-2 flex items-center justify-center gap-x-2">
                 <i class="pi pi-info-circle"></i>

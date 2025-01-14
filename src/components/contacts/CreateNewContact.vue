@@ -6,6 +6,7 @@ import RadioButton from 'primevue/radiobutton'
 import type { Market } from '@/interfaces/market'
 import type { Notification } from '@/interfaces/user'
 
+import { useGlobalStore } from '@/stores/global'
 import { useAuthStore } from '@/stores/auth'
 import { axiosHeader } from '@/functions'
 import { endPoint } from '@/stores/environment'
@@ -14,6 +15,7 @@ import { telegramBot } from '@/functions/telegramBot'
 import SelectExAccount from '@/components/SelectExAccount.vue'
 
 // Global
+const store = useGlobalStore()
 const authStore = useAuthStore()
 const header = axiosHeader()
 const required = 'This field is required'
@@ -86,9 +88,9 @@ const submitHandler = async () => {
                 <label class="form-label">Account type</label>
                 <Select 
                     v-model="selectedAccountType" 
-                    :options="accountsType" 
+                    :options="store.roles" 
                     optionLabel="name" 
-                    optionValue="code" 
+                    optionValue="id" 
                     placeholder="Please select a type" 
                     class="w-full"
                 />
@@ -177,7 +179,7 @@ const submitHandler = async () => {
                     <option v-for="market in markets" :key="market.id" :value="market.id">{{ market.label }}</option>
                 </FormKit>
             </div>
-            <div class="form-group">
+            <!-- <div class="form-group">
                 <label class="form-label !mb-3">Sinner Party Invitation</label>
                 <div class="flex items-center gap-x-6">
                     <div class="flex items-center gap-2">
@@ -189,7 +191,7 @@ const submitHandler = async () => {
                         <label for="sinnerParty">No</label>
                     </div>
                 </div>
-            </div>
+            </div> -->
             
             <div v-if="errorMessage" class="col-span-2">
                 <Message severity="error">{{ errorMessage }}</Message>
@@ -197,7 +199,7 @@ const submitHandler = async () => {
 
             <div class="form-group form-submit !flex-col items-center col-span-2">
                 <Button 
-                    :label="authStore.isAdmin ? 'Create external account' : 'Submit for validation'" 
+                    :label="authStore.isAdmin ? 'Create Account' : 'Submit for validation'" 
                     :icon="authStore.isAdmin ? '' : 'pi pi-hourglass'"
                     iconPos="right"
                     type="submit" 

@@ -28,6 +28,12 @@ const router = createRouter({
             component: () => import('../views/TodoListView.vue'),
         },
         {
+            path: '/request-list',
+            name: 'requestList',
+            beforeEnter: getAuth,
+            component: () => import('../views/RequestList.vue'),
+        },
+        {
             path: '/contacts',
             name: 'contacts',
             beforeEnter: getAuth,

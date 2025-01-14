@@ -2,7 +2,7 @@ const environment = [
     'https://api.adidas-116.com',
     'http://localhost:5581',
 ]
-const currentEnvironment = environment[0]
+const currentEnvironment = environment[1]
 
 export const endPoint = {
     auth: `${currentEnvironment}/auth`,

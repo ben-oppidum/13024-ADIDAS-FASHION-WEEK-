@@ -1,4 +1,4 @@
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
@@ -7,8 +7,10 @@ import { endPoint } from '@/stores/environment'
 import type { User } from '@/interfaces/user'
 
 // TS
-interface ErrorResponse {
-    message: string;
+interface Navigation {
+    routeName: string;
+    label: string;
+    path: string;
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -43,12 +45,21 @@ export const useAuthStore = defineStore('auth', () => {
     // Check if the user is an Admin
     const isAdmin = computed(() => user.value?.role_id === 1 ? true : false)
 
+    // Check if the user is an Admin
+    const isSale = computed(() => user.value?.role_id === 2 || user.value?.role_id === 3 ? true : false)
+
     // Set Logout Function
     const setLogOut = () => {
-        console.log('Logeed');
         window.localStorage.clear();
         window.location.href = "/login"
     }
 
-    return { user, isAdmin, getAuth, setAuth, setLogOut }
+    return { 
+        user, 
+        isAdmin,
+        isSale,
+        getAuth, 
+        setAuth, 
+        setLogOut 
+    }
 })

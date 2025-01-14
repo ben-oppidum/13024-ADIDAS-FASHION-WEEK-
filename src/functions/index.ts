@@ -1,5 +1,6 @@
 import moment from 'moment/min/moment-with-locales'
 import type { UserSmall } from '@/interfaces/user-small'
+import type { Meeting, Guest } from '@/interfaces/meeting';
 
 // Format Date
 export const formatDate = (date:string | Date, format = 'DD-MM-YYYY') => moment.utc(date).format(format);
@@ -77,4 +78,12 @@ export function convertToIso(date: string, time: string) {
     const formattedDateTime = dateTime.toISOString();
 
     return formattedDateTime
+}
+
+// Get External Account from meeting
+export const getExternalAccounts = (meeting:Meeting) => {
+    const guests = meeting.guests.map((g:Guest) => g.external_account_label)
+    const uniqueExternalAccounts = [...new Set(guests.filter((label) => label !== null && label !== undefined))];
+    
+    return uniqueExternalAccounts.length > 0 ? uniqueExternalAccounts : null
 }

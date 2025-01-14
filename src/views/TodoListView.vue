@@ -10,7 +10,7 @@ import { useMeetings } from '@/composables/useMeetings'
 import type { UseMeetingsReturn } from '@/composables/useMeetings'
 import type { Meeting, Guest } from '@/interfaces/meeting'
 
-import { fromNowDate, getAreaType, axiosHeader, meetingStatus, formatDate } from '@/functions'
+import { fromNowDate, getAreaType, axiosHeader, meetingStatus, formatDate, getRoleName } from '@/functions'
 import { telegramBot } from '@/functions/telegramBot'
 import { endPoint } from '@/stores/environment'
 import { useAuthStore } from '@/stores/auth'
@@ -196,7 +196,12 @@ const setUpdateGuestsDialog = async (e:Event, type:string) => {
                         tableStyle="min-width: 1200px"
                     >
 
-                        <template #empty> To-do list is empty </template>
+                        <template #empty>
+                            <div class="empty-data">
+                                <i class="pi pi-exclamation-circle"></i> 
+                                To-do list is empty
+                            </div>
+                        </template>
                         <Column expander style="width: 50px" />
 
                         <Column field="id" header="#"></Column>
@@ -206,6 +211,11 @@ const setUpdateGuestsDialog = async (e:Event, type:string) => {
                             </template>
                         </Column>
                         <Column field="title" header="Title" class="max-w-[200px]"></Column>
+                        <Column header="Market">
+                            <template #body="{ data }">
+                                <span>{{ `${data.market.label}` }}</span>
+                            </template>
+                        </Column> 
                         <Column header="Organizer Type">
                             <template #body="{ data }">
                                 <span>{{ data.organizer && data.organizer.role }}</span>
@@ -221,11 +231,11 @@ const setUpdateGuestsDialog = async (e:Event, type:string) => {
                                 <span class="line-clamp-2">{{ data.guests ? data.guests.length : 0 }}+</span>
                             </template>
                         </Column> 
-                        <Column header="">
+                        <!-- <Column header="">
                             <template #body="{}">
                                 <a href="#" class="text-primary"><i class="pi pi-calendar"></i></a>
                             </template>
-                        </Column> 
+                        </Column>  -->
                         <Column header="Type">
                             <template #body="{ data }">
                                 <span v-if="data.area" :class="['badge', getAreaType(data.area.id).toLowerCase()]">{{ getAreaType(data.area.id) }}</span>
@@ -233,7 +243,10 @@ const setUpdateGuestsDialog = async (e:Event, type:string) => {
                         </Column> 
                         <Column header="Date - Time">
                             <template #body="{ data }">
-                                <span>{{ formatDate(data.start_date, 'DD-MM-YYYY - HH:mm') }}</span>
+                                <span>
+                                    {{ formatDate(data.start_date, 'DD-MM-YYYY - HH:mm') }}<br />
+                                    {{ formatDate(data.end_date, 'HH:mm') }}
+                                </span>
                             </template>
                         </Column> 
                         <Column header="Status">
@@ -305,11 +318,26 @@ const setUpdateGuestsDialog = async (e:Event, type:string) => {
                                             <span>{{ data.position || '' }}</span>
                                         </template>
                                     </Column>
-                                    <Column header="">
+                                    <Column header="Rôle">
+                                        <template #body="{ data }">
+                                            <span>{{ getRoleName(data.role_id) }}</span>
+                                        </template>
+                                    </Column>
+                                    <Column header="External Account">
+                                        <template #body="{ data }">
+                                            <span>{{ data.external_account_label || '' }}</span>
+                                        </template>
+                                    </Column>
+                                    <Column header="Market">
+                                        <template #body="{ data }">
+                                            <span>{{ data.market }}</span>
+                                        </template>
+                                    </Column>
+                                    <!-- <Column header="">
                                         <template #body="{}">
                                             <a href="#" class="text-primary"><i class="pi pi-calendar"></i></a>
                                         </template>
-                                    </Column> 
+                                    </Column>  -->
                                 </DataTable>
                             </div>
                         </template>
@@ -324,7 +352,7 @@ const setUpdateGuestsDialog = async (e:Event, type:string) => {
                     <Toast position="top-center" group="reject-toast" />
                     <Toast position="top-center" group="meetingToast" />
 
-                    <Dialog v-model:visible="showDialog" modal :draggable="false" :style="{ width: '80vw' }" header="Edit meeting">   
+                    <Dialog v-model:visible="showDialog" modal :draggable="false" :style="{ width: '80vw' }" header="Edit Guests">   
                         <AddMeeting 
                             v-if="selectedMeeting"
                             :visible="showDialog"

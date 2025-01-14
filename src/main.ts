@@ -27,6 +27,7 @@ import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Toast from 'primevue/toast'
 import ToastService from 'primevue/toastservice'
+import Drawer from 'primevue/drawer'
 
 // FormKit
 import { plugin, defaultConfig } from '@formkit/vue'
@@ -50,6 +51,7 @@ app.component('Message', Message)
 app.component('Dialog', Dialog)
 app.component('InputText', InputText)
 app.component('Select', Select)
+app.component('Drawer', Drawer)
 app.use(PrimeVue, {
     theme: 'none'
 });

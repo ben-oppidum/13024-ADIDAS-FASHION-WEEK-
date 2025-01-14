@@ -4,6 +4,7 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import { useToast } from "primevue/usetoast"
 import Paginator from 'primevue/paginator'
+import ToggleSwitch from 'primevue/toggleswitch';
 import { useMagicKeys } from '@vueuse/core'
 
 import { useUsers } from '@/composables/useUsers'
@@ -15,13 +16,15 @@ import type { useMarketsReturn } from '@/composables/useMarkets'
 import { useExternalAccount } from '@/composables/useExternalAccount'
 import type { UseExternalAccountReturn } from '@/composables/useExternalAccount'
 
-import type { Notification } from '@/interfaces/user'
+import type { User, Notification } from '@/interfaces/user'
 
 import { useGlobalStore } from '@/stores/global'
-import { fromNowDate, getAreaType, formatDate, meetingStatus } from '@/functions'
+import { fromNowDate, getAreaType, formatDate } from '@/functions'
 
 import CreateExternalAccount from '@/components/contacts/CreateExternalAccount.vue'
 import CreateNewContact from '@/components/contacts/CreateNewContact.vue'
+import SelectExAccount from '@/components/SelectExAccount.vue'
+import ContactDetails from '@/components/contacts/ContactDetails.vue'
 
 // Global
 const store = useGlobalStore()
@@ -38,7 +41,6 @@ const { markets, loading: loadingMarkets }: useMarketsReturn = useMarkets(true)
 const { externalAccounts, loading: loadingExAccount }: UseExternalAccountReturn = useExternalAccount(true)
 
 // Table Config
-const staticmeetingStatus = ref(1)
 const expandedRows = ref({});
 
 // Table Pagination
@@ -49,52 +51,71 @@ interface TablePagination {
     rows: number;
 }
 const setPage = async (e:TablePagination) => {
-    console.log(e);
     const nextPage = e.page + 1
     query.value.has('page') ? 
         query.value.set('page', nextPage.toString()) : 
         query.value.append('page', nextPage.toString())
+
+    query.value.has('limit') ? 
+        query.value.set('limit', e.rows.toString()) : 
+        query.value.append('limit', e.rows.toString())
 
     await getUsers(query.value.toString())
 }
 
 // Account Type
 const selectedAccountType = ref<string>('')
-const accountsType = ref([
-    { name: 'Adidas Team', code: 'adidas' },
-    { name: 'External Account', code: 'exAccount' },
-]);
 
 // Set Account Type
 const selectedRole = ref<string | null>(null)
 const setAccountType = async () => {
-    if(selectedAccountType.value === 'exAccount') selectedRole.value = 'role=6'
-    if(selectedAccountType.value === 'adidas') selectedRole.value = 'role=1,2,3,4,5'
+    selectedRole.value = `role=${selectedAccountType.value}`
+    
+    resetFields()
+    deleteParameter()
 
     if(selectedRole.value) await getUsers(selectedRole.value)
 }
 
 // Filter Contacts
-const filter = ref<Record<string, string>>({
+interface Filter {
+    fullname: string;
+    exAccount: string;
+    market: number;
+    hasMeetings: boolean;
+    [key: string]: string | boolean | number; 
+}
+const filter = ref<Filter>({
     fullname: '',
     exAccount: '',
-    market: '',
-    role: ''
+    market: 0,
+    hasMeetings: false
 });
 
 // Clear Filter
 const clearFilter = ref<boolean>(false)
-const setClearFilter = async () => {
-    clearFilter.value = false
-    canFilter.value = false
+const resetFields = () => {
+    console.log(filter.value);
+    clearFilter.value = false;
+    canFilter.value = false;
 
     for (const key in filter.value) {
         if (filter.value.hasOwnProperty(key)) {
-            filter.value[key] = '';
+            const filterKey = key as keyof Filter;
+            if (typeof filter.value[filterKey] === 'string') {
+                filter.value[filterKey] = '';
+            } else if (typeof filter.value[filterKey] === 'boolean') {
+                filter.value[filterKey] = false;
+            } else if (typeof filter.value[filterKey] === 'number') {
+                filter.value[filterKey] = 0;
+            }
         }
     }
+}
+const setClearFilter = async () => {
+    resetFields()
     deleteParameter()
-    if(selectedRole.value) await getUsers(selectedRole.value)
+    if(selectedRole.value) await getUsers(selectedRole.value);
 }
 
 // Block Filter Button if any input is empty
@@ -109,6 +130,7 @@ const deleteParameter = () => {
     query.value.delete('fullname');
     query.value.delete('market');
     query.value.delete('role');
+    query.value.delete('hasMeetings');
 }
 
 // Search Contact Server-Side
@@ -117,8 +139,9 @@ const searchContacts = async () => {
     deleteParameter()
 
     if (filter.value.fullname !== '') query.value.append('fullname', filter.value.fullname.toLowerCase());
-    if (filter.value.market !== '') query.value.append('market', filter.value.market);
-    if (filter.value.role !== '') query.value.append('role', filter.value.role);
+    if (filter.value.market !== 0) query.value.append('market', filter.value.market.toString());
+    if (selectedAccountType.value !== '') query.value.append('role', selectedAccountType.value);
+    if (filter.value.hasMeetings === true) query.value.append('hasMeetings', filter.value.hasMeetings.toString());
 
     await getUsers(query.value.toString())
     clearFilter.value = true
@@ -153,6 +176,15 @@ const getNotificationOnSubmit = async (e:Notification) => {
 
     if(selectedRole.value) await getUsers(selectedRole.value)
 }
+
+// View More 
+const drawerViewMore = ref<boolean>(false)
+const selectedContact = ref<User | null>(null)
+
+const viewMore = async (user:User) => {
+    drawerViewMore.value = true
+    selectedContact.value = user
+}
 </script>
 
 <template>
@@ -181,9 +213,9 @@ const getNotificationOnSubmit = async (e:Notification) => {
                         <label class="form-label">Account type</label>
                         <Select 
                             v-model="selectedAccountType" 
-                            :options="accountsType" 
+                            :options="store.roles" 
                             optionLabel="name" 
-                            optionValue="code" 
+                            optionValue="id" 
                             placeholder="Please select a type" 
                             class="w-full"
                             @change="setAccountType"
@@ -202,44 +234,11 @@ const getNotificationOnSubmit = async (e:Notification) => {
                             fluid
                          />
                     </div>
-                    <template v-if="selectedAccountType === 'adidas'">
-                        <div class="form-group col-span-4 !mb-0">
-                            <label class="form-label">Filter by type of contact</label>
-                            <Select 
-                                v-model="filter.role" 
-                                :options="store.roles" 
-                                optionLabel="name" 
-                                optionValue="id" 
-                                placeholder="Please select a type" 
-                                class="w-full" 
-                            />
-                        </div>
-                    </template>
-                    <template v-if="selectedAccountType === 'exAccount'">
-                        <div class="form-group col-span-3 !mb-0">
-                            <label class="form-label">Filter by Sales</label>
-                            <Select 
-                                v-model="selectedAccountType" 
-                                :options="accountsType" 
-                                optionLabel="name" 
-                                placeholder="Please select a type" 
-                                class="w-full" 
-                            />
-                        </div>
-                        <div class="form-group col-span-3 !mb-0">
-                            <label class="form-label">Filter by External Account</label>
-                            <Select 
-                                v-model="filter.exAccount" 
-                                :options="externalAccounts || []" 
-                                optionLabel="label"
-                                optionValue="id"
-                                placeholder="Please select an External account"
-                                :loading="loadingExAccount"
-                                class="w-full" 
-                            />
-                        </div>
-                    </template>
-                    <div :class="['form-group !mb-0', selectedAccountType === 'adidas' ? 'col-span-4' : 'col-span-3']">
+                    <div class="form-group col-span-3 !mb-0">
+                        <label class="form-label">Filter by External Account</label>
+                        <SelectExAccount v-if="!loadingExAccount" v-model:="filter.exAccount" />
+                    </div>
+                    <div class="form-group !mb-0 col-span-3">
                         <label class="form-label">Filter by Market</label>
                         <Select 
                             v-model="filter.market" 
@@ -251,8 +250,12 @@ const getNotificationOnSubmit = async (e:Notification) => {
                             class="w-full" 
                         />
                     </div>
+                    <div class="form-group col-span-2 !mb-0">
+                        <label class="form-label">Only with Meetings</label>
+                        <ToggleSwitch v-model="filter.hasMeetings" class="mt-2" />
+                    </div>
 
-                    <div :class="['flex items-end justify-end', , selectedAccountType === 'adidas' ? 'col-span-2' : 'col-span-1']">
+                    <div class="flex items-end justify-end col-span-2">
                         <Button 
                             label="Search"
                             icon="pi pi-search"
@@ -289,20 +292,30 @@ const getNotificationOnSubmit = async (e:Notification) => {
                         tableStyle="min-width: 1200px"
                     >
 
-                        <template #empty>No contact found on database</template>
+                        <template #empty>
+                            <div class="empty-data">
+                                <i class="pi pi-exclamation-circle"></i> 
+                                No contact found on database
+                            </div>
+                        </template>
                         <Column expander style="width: 50px" />
 
-                        <Column field="qrcode" header="ID (Qr code)"></Column>
+                        <Column field="reference" header="ID (Qr code)"></Column>
                         <Column field="first_name" header="Name"></Column>
                         <Column field="last_name" header="Surname"></Column>
                         <Column field="email" header="Email"></Column>
                         <Column field="phone" header="Phone number"></Column>
-                        <Column header="Type of contact">
+                        <Column header="Type of contact" class="w-[160px]">
                             <template #body="{ data }">
                                 <span v-if="data.role">{{ data.role.role_name }}</span>
                             </template>
                         </Column>
                         <Column field="position" header="Title"></Column>
+                        <Column header="Ex Account">
+                            <template #body="{ data }">
+                                <span v-if="data.external_account">{{ data.external_account.label }}</span>
+                            </template>
+                        </Column>
                         <Column header="Market">
                             <template #body="{ data }">
                                 <span v-if="data.market">{{ data.market.label }}</span>
@@ -311,12 +324,21 @@ const getNotificationOnSubmit = async (e:Notification) => {
                         <Column header="Action">
                             <template #body="{ data }">
                                 <div class="flex gap-x-2">
-                                    <Button 
+                                    <!-- <Button 
                                         label="Agenda"
                                         icon="pi pi-plus"
                                         icon-pos="right"
                                         size="small"
-                                    />
+                                    /> -->
+                                    <button 
+                                        type="button" 
+                                        class="table-action edit"
+                                        v-tooltip.top="'View more'"
+                                        placeholder="Top"
+                                        @click="viewMore(data)"
+                                    >
+                                        <i class="pi pi-eye"></i>
+                                    </button>
                                     <button 
                                         v-if="data.phone"
                                         type="button" 
@@ -365,7 +387,11 @@ const getNotificationOnSubmit = async (e:Notification) => {
                                     </Column> 
                                     <Column header="Date & Time">
                                         <template #body="{ data }">
-                                            <span>{{ formatDate(data.start_date, 'DD-MM-YYYY - HH:mm') }}</span>
+                                            <span>{{ `
+                                                ${formatDate(data.start_date, 'DD-MM-YYYY - HH:mm')}
+                                                 / 
+                                                ${formatDate(data.end_date, 'HH:mm')}
+                                            ` }}</span>
                                         </template>
                                     </Column> 
                                 </DataTable>
@@ -380,7 +406,7 @@ const getNotificationOnSubmit = async (e:Notification) => {
                         v-if="pagination"
                         :rows="pagination.itemsPerPage" 
                         :totalRecords="pagination.totalItems" 
-                        :rowsPerPageOptions="[pagination.itemsPerPage, 10, 20, 30, 40, 50]"
+                        :rowsPerPageOptions="[20, 30, 40, 50]"
                         @page="setPage"
                         class="mt-8"
                     ></Paginator>
@@ -413,6 +439,11 @@ const getNotificationOnSubmit = async (e:Notification) => {
                         @update-dialog="getNotificationOnSubmit"
                     />
             </Dialog>
+
+            <!-- Drawer View More -->
+            <Drawer v-model:visible="drawerViewMore" :header="selectedContact ? `${selectedContact.last_name.toUpperCase()} ${selectedContact.first_name}` : ''" position="right">
+                <ContactDetails v-if="selectedContact" :contact="selectedContact" />
+            </Drawer>
 
             <!-- Toasts -->
             <Toast position="top-center" group="createNewContact" />

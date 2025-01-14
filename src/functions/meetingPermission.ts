@@ -3,15 +3,14 @@ import type { RoleNumber } from '@/interfaces/user'
 interface State {
     title: string;
     area: string;
-    organizer: string;
-    externalAccount: string;
+    organizer: number;
+    externalAccount: number[];
     startDate: string;
     startHour: string;
     endDate: string;
     endHour: string;
     guests: number[];
     internalComment: string;
-    guestComment: string;
 }
 
 interface Permissions {

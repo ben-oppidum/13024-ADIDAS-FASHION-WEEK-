@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import type { Ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import Avatar from 'primevue/avatar'
 import Popover from 'primevue/popover'
@@ -14,6 +13,7 @@ interface Navigation {
     routeName: string;
     label: string;
     path: string;
+    roles: number[]
 }
 
 // Global
@@ -25,42 +25,38 @@ defineProps<{
 }>()
 
 // Navigation
-const navigation: Ref<Navigation[]> = ref([
+const navigation: Navigation[] = [
+    {
+        routeName: 'todo',
+        label: 'To-Do List',
+        path: '/todo',
+        roles: [1],
+    },
+    {
+        routeName: 'requestList',
+        label: 'Request List',
+        path: '/request-list',
+        roles: [2, 3],
+    },
     {
         routeName: 'home',
         label: 'Calendar',
         path: '/',
+        roles: [1, 2, 3, 4, 5],
     },
     {
         routeName: 'contacts',
         label: 'Contacts',
         path: '/contacts',
+        roles: [1, 2, 3, 4, 5],
     },
-])
+]
 
-// Add Todo List to Navigation
-watch(
-    () => authStore.isAdmin,
-    (newValue) => {
-        if(newValue) {
-            navigation.value.unshift({
-                routeName: 'todo',
-                label: 'To-Do List',
-                path: '/todo',
-            })
-        }
-    },
-    { immediate: true }
-);
-// onMounted(() => {
-//     if(authStore.isAdmin) {
-//         navigation.value.unshift({
-//             routeName: 'todo',
-//             label: 'To-Do List',
-//             path: '/todo',
-//         })
-//     }
-// })
+const authorizedNavigations = computed(() => {
+    if(!authStore.user) return []
+    const filtredNavigation = navigation.filter(nav => nav.roles.includes(authStore.user!.role_id))
+    return filtredNavigation
+})
 
 // Panel
 const panel = ref()
@@ -72,7 +68,7 @@ const togglePanel = (event: Event) => {
 const setLogOut = () => {
     confirm.require({
         message: 'Are you sure you want to logout?',
-        header: 'Danger Zone',
+        header: 'Log out',
         icon: 'pi pi-info-circle',
         rejectProps: {
             label: 'Cancel',
@@ -110,7 +106,7 @@ const shortName = computed(() => {
         <template v-if="!logoOnly">
             <nav class="flex divide-x divide-gray-600">
                 <router-link 
-                    v-for="(item, index) in navigation"
+                    v-for="(item, index) in authorizedNavigations"
                     :key="index"
                     :to="item.path"
                     :class="[
@@ -138,10 +134,6 @@ const shortName = computed(() => {
             
             <Popover ref="panel">
                 <nav class="flex flex-col min-w-[200px]">
-                    <router-link to="/" class="py-1 px-3 rounded-md flex items-center gap-x-3 transition-all duration-100 ease-in-out hover:bg-gray-100">
-                        <i class="pi !text-base pi-user"></i>
-                        My profil
-                    </router-link>
                     <button type="button" @click="setLogOut" class="py-1 px-3 rounded-md flex items-center gap-x-3 transition-all duration-100 ease-in-out text-red-500 hover:bg-gray-100">
                         <i class="pi !text-base pi-sign-out"></i>
                         Logout
