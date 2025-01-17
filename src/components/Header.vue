@@ -26,18 +26,18 @@ defineProps<{
 
 // Navigation
 const navigation: Navigation[] = [
-    {
-        routeName: 'todo',
-        label: 'To-Do List',
-        path: '/todo',
-        roles: [1],
-    },
-    {
-        routeName: 'requestList',
-        label: 'Request List',
-        path: '/request-list',
-        roles: [2, 3],
-    },
+    // {
+    //     routeName: 'todo',
+    //     label: 'To-Do List',
+    //     path: '/todo',
+    //     roles: [1],
+    // },
+    // {
+    //     routeName: 'requestList',
+    //     label: 'Request List',
+    //     path: '/request-list',
+    //     roles: [2, 3],
+    // },
     {
         routeName: 'home',
         label: 'Calendar',

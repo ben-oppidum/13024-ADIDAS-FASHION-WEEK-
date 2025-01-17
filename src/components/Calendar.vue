@@ -8,16 +8,22 @@ import 'vue-cal/dist/vuecal.css'
 
 import { useAreas } from '@/composables/useAreas'
 import { useMeetings } from '@/composables/useMeetings'
-import type { Meeting, MeetingCalendar, OpenDialog } from '@/interfaces/meeting'
+import type { Meeting, Guest, MeetingCalendar, OpenDialog } from '@/interfaces/meeting'
 
 import type { UseAreasReturn } from '@/composables/useAreas'
 import type { UseMeetingsReturn } from '@/composables/useMeetings'
 
-import { axiosHeader } from '@/functions'
+// import { useMarkets } from '@/composables/useMarkets'
+// import type { useMarketsReturn } from '@/composables/useMarkets'
+
+import { useAuthStore } from '@/stores/auth'
+import { axiosHeader, getExternalAccountLabel } from '@/functions'
 import { endPoint } from '@/stores/environment'
 
+import SelectMarket from '@/components/SelectMarket.vue'
 import SelectExAccount from '@/components/SelectExAccount.vue'
 import MeetingDetails from '@/components/meetings/MeetingDetails.vue'
+import CalendarCard from '@/components/meetings/CalendarCard.vue'
 
 // TS
 type ViewType = 'week' | 'day';
@@ -27,6 +33,7 @@ interface ViewChangeEvent {
 }
 
 //  Global
+const authStore = useAuthStore()
 const header = axiosHeader()
 const toast = useToast()
 const emit = defineEmits(['openDialog'])
@@ -34,14 +41,17 @@ const emit = defineEmits(['openDialog'])
 // Get Areas
 const { areas, loading: loadingAreas }: UseAreasReturn = useAreas(true)
 
+// // Get Markets 
+// const { markets, loading: loadingMarkets }: useMarketsReturn = useMarkets(true)
+
 // Calendar Config
 const vuecal = ref<InstanceType<typeof VueCal> | null>(null);
 const calendarConfig = ref({
     hideViewSelector: true,
     hideTitlebar: false,
     disableViews: ['years', 'year', 'month'],
-    activeView: 'week',
-    selectedDate: '2025-01-20',
+    activeView: 'day',
+    selectedDate: '2025-01-22',
     eventOnMonthView: false, // or short
     disableDays: [], // Format : '2025-01-20'
     minDate: '2025-01-20',
@@ -60,6 +70,7 @@ const calendarConfig = ref({
 })
 
 // Data
+const meetingStatusParams = 'status=2'
 const { 
     meetingsCalendar: events, 
     disabledHours, 
@@ -67,12 +78,13 @@ const {
     getMeetings, 
     setDisabledHours 
 }: UseMeetingsReturn = useMeetings(false, true)
-onMounted(async () => { await getMeetings('status=2') })
+onMounted(async () => { await getMeetings(meetingStatusParams) })
 
 // Filter Data
 const filter = ref<Record<string, string>>({
+    area: '',
     exAccount: '',
-    area: ''
+    market: ''
 });
 
 const filtredMeetings = computed(() => {
@@ -82,17 +94,26 @@ const filtredMeetings = computed(() => {
 
         if (value != '') {
             switch (fc) {
-                case 'exAccount':
-                    //clearFilter.value = true
-                    //filteredData = filteredData && filteredData.filter((item) => +item.content.exAccount === +value)
-                    break;
-
                 case 'area':
                     clearFilter.value = true
-                    filteredData = filteredData && filteredData.filter((item) => +item.content.areaId === +value)
-                    
-                    //setDisabledHours(+value)
+                    filteredData = filteredData && filteredData.filter((item) => {
+                        return item.content.areaId === +value
+                    })
+                    break;
 
+                case 'exAccount':
+                    clearFilter.value = true
+                    filteredData = filteredData && filteredData.filter((item) => {
+                        return item.content.externalAccountIds?.some(id => id === +value)
+                    })
+                    break;
+
+                case 'market':
+                    clearFilter.value = true
+                    console.log(value);
+                    filteredData = filteredData && filteredData.filter((item) => {
+                        return item.content.meetingMarket === +value
+                    })
                     break;
 
                 default:
@@ -107,7 +128,7 @@ const filtredMeetings = computed(() => {
 
 // Clear Filter
 const clearFilter = ref<boolean>(false)
-const setClearFilter = () => {
+const setClearFilter = async () => {
     clearFilter.value = false
     //setDisabledHours(1, true)
 
@@ -116,6 +137,8 @@ const setClearFilter = () => {
             filter.value[key] = '';
         }
     }
+
+    await getMeetings(meetingStatusParams)
 }
 
 const viewChange = (e: ViewChangeEvent) => calendarConfig.value.activeView = e.view
@@ -139,7 +162,8 @@ const cellClick = (clickType:string, e:Date) => {
     if(clickType === 'click') {
         emit("openDialog", {
             date: e,
-            type: 'create'
+            type: 'create',
+            dialogTitle: 'Create Meeting',
         } as OpenDialog );
         return
     }
@@ -184,7 +208,21 @@ const getEditedMeeting = async (meetingId:string) => {
         meetingDetails.value = false
         emit("openDialog", {
             meeting: foundMeeting,
-            type: 'edit'
+            type: 'edit',
+            dialogTitle: 'Edit Meeting'
+        } as OpenDialog );
+    }
+}
+
+// Get Edit Guest Meeting From Drawer
+const getEditedGuestsMeeting = async (meetingId:string) => {
+    const foundMeeting = await getMeeting(meetingId)
+    if(foundMeeting) {
+        meetingDetails.value = false
+        emit("openDialog", {
+            meeting: foundMeeting,
+            type: 'editGuests',
+            dialogTitle: `Edit Meeting's Guests`
         } as OpenDialog );
     }
 }
@@ -195,20 +233,16 @@ const getCanceledMeeting = async (message:string) => {
     toast.add({ severity: 'success', summary: 'Message', detail: message,  group: `cancel-meeting`, life: 3000 });
     
     setTimeout(async () => {
-        await getMeetings('status=2')
+        await getMeetings(meetingStatusParams)
     }, 2000);
 }
 </script>
 
 <template>
     <div>
-        <div class="grid grid-cols-7 gap-x-3 items-center mb-6">
-            <div class="form-group col-span-3">
-                <label class="form-label">External Account</label>
-                <SelectExAccount v-model:="filter.exAccount" />
-            </div>
-            <div class="font-semibold px-6 pt-3 text-center">And</div>
-            <div class="form-group col-span-3">
+
+        <div class="grid grid-cols-12 gap-x-3 items-end mb-6">
+            <div class="form-group col-span-3 !mb-0">
                 <label class="form-label">Area</label>
                 <Select 
                     v-model="filter.area" 
@@ -220,19 +254,46 @@ const getCanceledMeeting = async (message:string) => {
                     class="w-full" 
                 />
             </div>
-            <div class="col-span-7 flex justify-end">
-                <button v-if="clearFilter" type="button" @click="setClearFilter" class="text-gray-500 flex items-center gap-x-2 mt-2">
-                    <i class="pi pi-filter-slash"></i>
-                    Clear filter
-                </button>
+            <div class="form-group col-span-3 !mb-0">
+                <label class="form-label">External Account</label>
+                <SelectExAccount v-model:="filter.exAccount" />
+            </div>
+            
+            <div class="form-group col-span-3 !mb-0">
+                <label class="form-label">Market</label>
+                <SelectMarket v-model="filter.market" retour-value="id" />
+            </div>
+            
+            <!-- <div v-if="markets" class="form-group col-span-3">
+                <label class="form-label">Market</label>
+                <Select 
+                    v-model="filter.market" 
+                    :options="markets" 
+                    optionLabel="label"
+                    optionValue="label" 
+                    placeholder="Select a market" 
+                    class="w-full" 
+                />
+            </div> -->
+
+            <div class="flex justify-end items-end col-span-3 !mb-0">
+                <Button 
+                    v-if="clearFilter"
+                    label="Clear filter"
+                    severity="primary-outline"
+                    icon="pi pi-filter-slash"
+                    @click="setClearFilter"
+                />
             </div>
         </div>
+
         <div class="flex justify-end items-start mb-5">
             <div class="flex gap-x-2 mb-4">
                 <button type="button" :class="['font-semibold py-2 px-4 rounded-lg hover:bg-gray-200 hover:text-gray-500 transition-all duration-100 ease-in-out', calendarConfig.activeView === 'week' ? 'bg-gray-900 hover:bg-gray-900 hover:text-white text-white' : 'text-gray-400']" @click="changeView('week')">Week</button>
                 <button type="button" :class="['font-semibold py-2 px-4 rounded-lg hover:bg-gray-200 hover:text-gray-500 transition-all duration-100 ease-in-out', calendarConfig.activeView === 'day' ? 'bg-gray-900 hover:bg-gray-900 hover:text-white text-white' : 'text-gray-400']" @click="changeView('day')">Day</button>
             </div>
         </div>
+
         <template v-if="loadingMeetings">
             <div class="flex items-center justify-center h-[450px]">
                 <span class="loader-calendar"></span>
@@ -275,35 +336,35 @@ const getCanceledMeeting = async (message:string) => {
                 </template>
 
                 <template #event="{ event, view }">
+
+                    <CalendarCard :view="view" :meeting="event" />
                     
-                    <div class="text-xs" v-if="view === 'week'">
+                    <!-- <div class="text-xs" v-if="view === 'week'">
                         <div class="font-semibold flex items-center gap-x-1">
                             <span>{{ event.content.startHour }}</span>
-                            <!-- <span class="w-4 h-4 rounded-full bg-current block"></span> -->
                             <span>{{ `(+${event.content.guests})` }}</span>
                         </div>
                         <div>
                             <span class="title block line-clamp-1">{{ event.content.title }}</span>
-                            <span class="title font-semibold leading-4 line-clamp-1">{{ event.content.info }}</span>
+                            <span v-if="authStore.externalAccountsSmall" class="title font-semibold leading-4 line-clamp-1">{{ getExternalAccountLabel(event.content.externalAccountIds, authStore.externalAccountsSmall) }}</span>
                         </div>
                     </div>
 
                     <div v-if="view === 'day'">
                         <div class="font-semibold flex items-center gap-x-1">
                             <span>{{ event.content.startHour }}</span>
-                            <!-- <span class="w-4 h-4 rounded-full bg-current block"></span> -->
                             <span>{{ `(+${event.content.guests})` }}</span>
                         </div>
-                        <div class="flex gap-x-2">
+                        <div class="flex items-center gap-x-2">
                             <span>{{ event.content.title }}</span>
                             <span> - </span>
-                            <span class="title font-semibold leading-4">{{ event.content.info }}</span>
+                            <span v-if="authStore.externalAccountsSmall" class="title font-semibold leading-4 line-clamp-1">{{ getExternalAccountLabel(event.content.externalAccountIds, authStore.externalAccountsSmall) }}</span>
                             <template v-if="event.content.organizer">
                                 <span> - </span>
                                 <span>{{ `Organizer : ${event.content.organizer}` }}</span>
                             </template>
                         </div>
-                    </div>
+                    </div> -->
 
                 </template>
             </vue-cal>
@@ -319,6 +380,7 @@ const getCanceledMeeting = async (message:string) => {
                 v-else-if="selectedEvent" 
                 :meeting="selectedEvent"
                 @update-edited-meeting="getEditedMeeting"
+                @update-edited-guests-meeting="getEditedGuestsMeeting"
                 @update-canceled-meeting="getCanceledMeeting"
             />
         </Drawer>

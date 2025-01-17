@@ -28,6 +28,13 @@ export const useUsers = (autoLoad:boolean = false) => {
 
         try {
             const response = await axios.get(usersEndpoint, header)
+
+            // Sort Users 
+            response.data.users.sort((a:User, b:User) => {
+                if(a.last_name < b.last_name) { return -1; }
+                if(a.last_name > b.last_name) { return 1; }
+                return 0;
+            });
             
             users.value = response.data.users
             pagination.value = response.data.pagination

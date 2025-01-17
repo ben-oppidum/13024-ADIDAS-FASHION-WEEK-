@@ -1,3 +1,5 @@
+//import { currentEnvironment } from './src/stores/environment';
+
 module.exports = function (grunt) {
     grunt.initConfig({
         ftp_push: {
@@ -26,5 +28,14 @@ module.exports = function (grunt) {
     }); 
 
     grunt.registerTask("prod", ["ftp_push:prod"]);
+
+    // grunt.registerTask("prod", function () {
+    //     if(currentEnvironment.includes('localhost')) {
+    //         grunt.log.writeln("⛔ FTP push is disabled. Turn Environment to Production mode.");
+    //     } else {
+    //         grunt.task.run("ftp_push:prod");
+    //     }
+    // });
+
     grunt.loadNpmTasks('grunt-ftp-push');
 };

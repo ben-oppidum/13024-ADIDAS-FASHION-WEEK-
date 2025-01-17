@@ -211,11 +211,6 @@ const setUpdateGuestsDialog = async (e:Event, type:string) => {
                             </template>
                         </Column>
                         <Column field="title" header="Title" class="max-w-[200px]"></Column>
-                        <Column header="Market">
-                            <template #body="{ data }">
-                                <span>{{ `${data.market.label}` }}</span>
-                            </template>
-                        </Column> 
                         <Column header="Organizer Type">
                             <template #body="{ data }">
                                 <span>{{ data.organizer && data.organizer.role }}</span>

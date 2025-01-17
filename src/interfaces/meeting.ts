@@ -18,6 +18,7 @@ export interface Meeting {
     external_account: ExternalAccount;
     organizer: Organizer;
     market: Market;
+    external_account_ids: number[] | null;
 }
 
 export interface MeetingCalendar {
@@ -37,9 +38,11 @@ export interface MeetingContent {
     endHour: string;
     guests: number;
     title: string;
-    info: string;
     areaId: number;
     organizer: string;
+    externalAccountIds: number[] | null;
+    meetingMarket: number;
+    markets: string[]
 }
   
 export interface Guest {
@@ -72,4 +75,5 @@ export interface OpenDialog {
     meeting?: Meeting;
     meetingId?: string;
     type: string;
+    dialogTitle: string;
 }

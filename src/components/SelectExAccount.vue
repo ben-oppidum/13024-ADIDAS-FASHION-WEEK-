@@ -3,14 +3,16 @@ import MultiSelect from 'primevue/multiselect'
 
 import { useExternalAccount } from '@/composables/useExternalAccount'
 import type { UseExternalAccountReturn } from '@/composables/useExternalAccount'
+import { useAuthStore } from '@/stores/auth'
 
 // Global
+const authStore = useAuthStore()
 defineProps<{
     type?: string;
 }>()
 
 // Get External Account
-const { externalAccounts, loading }: UseExternalAccountReturn = useExternalAccount(true)
+// const { externalAccounts, loading }: UseExternalAccountReturn = useExternalAccount(true)
 const model = defineModel()
 </script>
 
@@ -18,8 +20,8 @@ const model = defineModel()
     <template v-if="type === 'multiselect'">
         <MultiSelect 
             v-model="model" 
-            :options="externalAccounts || []" 
-            optionLabel="label"
+            :options="authStore.externalAccountsSmall || []" 
+            :optionLabel="(option) => `${option.label} (${option.market_label})`"
             optionValue="id" 
             filter
             placeholder="Select External Accounts"
@@ -31,12 +33,11 @@ const model = defineModel()
     <template v-else>
         <Select 
             v-model="model" 
-            :options="externalAccounts || []" 
+            :options="authStore.externalAccountsSmall || []" 
             filter 
-            optionLabel="label" 
+            :optionLabel="(option) => `${option.label} (${option.market_label})`" 
             optionValue="id" 
             placeholder="Select an External Account"
-            :disabled="loading"
             fluid
         />
     </template>

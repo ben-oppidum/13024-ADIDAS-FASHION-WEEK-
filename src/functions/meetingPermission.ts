@@ -77,9 +77,9 @@ export function meetingPermission(area:number) {
     return permissions
 }
 
-export const checkFormSubmitttion = (area:number, userRole:RoleNumber, state:State) => {
+export const checkFormSubmitttion = (area:number, userRole:RoleNumber, state:State, guestsLength?:number) => {
     // If user is Admin or Area is Thorigny return because all permissions are allowed
-    if(userRole === 1 || area === 1) return null
+    if(area === 1) return null
 
     const permissions = meetingPermission(area)
     if (!permissions) return null
@@ -93,11 +93,15 @@ export const checkFormSubmitttion = (area:number, userRole:RoleNumber, state:Sta
     }
 
     // Check Max Attendees
-    if (permissions.maxAttendees !== null) {
-        const selectedAttendees = state.guests.length;
-        console.log(selectedAttendees);
-        if (selectedAttendees > permissions.maxAttendees) return message = `Warning: The max allowed attendees is ${permissions.maxAttendees}`;;
-    } 
+    if(guestsLength && permissions.maxAttendees !== null) {
+        if (guestsLength > permissions.maxAttendees) return message = `Warning: The max allowed attendees is ${permissions.maxAttendees}`;
+    }
+    // if (permissions.maxAttendees !== null) {
+    //     console.log(state.guests);
+    //     const selectedAttendees = state.guests.length;
+    //     console.log(selectedAttendees);
+    //     if (selectedAttendees > permissions.maxAttendees) return message = `Warning: The max allowed attendees is ${permissions.maxAttendees}`;
+    // } 
 
     return null
 }

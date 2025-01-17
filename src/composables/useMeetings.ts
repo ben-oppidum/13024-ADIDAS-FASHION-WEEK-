@@ -3,7 +3,7 @@ import type { Ref } from 'vue'
 import axios from 'axios'
 import type { Meeting, MeetingCalendar } from '@/interfaces/meeting'
 
-import { axiosHeader, formatDate, getExternalAccounts } from '@/functions'
+import { axiosHeader, formatDate } from '@/functions'
 import { endPoint } from '@/stores/environment'
 
 // TS
@@ -23,11 +23,14 @@ const header = axiosHeader()
 
 function formatMeetingData(meeting: Meeting): MeetingCalendar {
     const guestsCount = meeting.guests ? meeting.guests.length : 0
-    const exAccount = getExternalAccounts(meeting)
-    const market = meeting.market && meeting.market.label ? meeting.market.label.toLowerCase() : ''
-    const info = 
-        exAccount ? `${exAccount.join("").toString()} - ${market.toUpperCase()}` : 
-        market.toUpperCase()
+
+    const marketsLabel = meeting.guests && meeting.guests.map(g => g.market)
+    const markets = [...new Set(marketsLabel)]
+    //const exAccount = getExternalAccounts(meeting)
+    const marketClass = meeting.market && meeting.market.label ? meeting.market.label.toLowerCase() : ''
+    // const info = 
+    //     exAccount ? `${exAccount.join("").toString()} - ${market.toUpperCase()}` : 
+    //     market.toUpperCase()
 
 
     return {
@@ -41,11 +44,13 @@ function formatMeetingData(meeting: Meeting): MeetingCalendar {
             endHour: formatDate(meeting.end_date, 'HH:mm'),
             guests: guestsCount,
             title: meeting.area.label,
-            info: info,
             areaId: meeting.area.id,
-            organizer: meeting.organizer && `${meeting.organizer.first_name} ${meeting.organizer.last_name}`
+            externalAccountIds: meeting.external_account_ids,
+            organizer: meeting.organizer && `${meeting.organizer.first_name} ${meeting.organizer.last_name}`,
+            meetingMarket: meeting.market && meeting.market.id,
+            markets: markets || []
         },
-        class: market,
+        class: marketClass,
         disabled: false,
         draggable: false,
     }
@@ -60,6 +65,7 @@ export const useMeetings = (autoLoad:boolean = false, formatData = false) => {
     const getMeetings = async (params?:string) => {
         loading.value = true
         meetings.value = null
+        meetingsCalendar.value = null
         const meetingsEndpoint = 
             params ? `${endPoint.meetings}?${params}` : 
             endPoint.meetings

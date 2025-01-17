@@ -18,6 +18,7 @@ import { telegramBot } from '@/functions/telegramBot'
 import { endPoint } from '@/stores/environment'
 
 import UsersSearch from '@/components/UsersSearch.vue'
+import SelectMarket from '@/components/SelectMarket.vue'
 import SelectOrganizer from '@/components/SelectOrganizer.vue'
 import SelectExAccount from '@/components/SelectExAccount.vue'
 
@@ -128,6 +129,7 @@ const state = ref({
     title: '',
     area: '',
     organizer: 0,
+    market: 0,
     externalAccount: [],
     startDate: '',
     startHour: '',
@@ -190,6 +192,7 @@ onMounted(() => {
     if(props.meeting && props.method === 'edit') {
         props.meeting.title ? state.value.title = props.meeting.title : ''
         props.meeting.area_id ? state.value.area = props.meeting.area_id.toString() : ''
+        props.meeting.market ? state.value.market = props.meeting.market.id : ''
         props.meeting.organizer ? state.value.organizer = props.meeting.organizer.id : ''
         
         props.meeting.start_date ? state.value.startDate = formatDate(props.meeting.start_date, 'YYYY-MM-DD') : ''
@@ -208,6 +211,20 @@ watch(state.value, (newState) => {
         areaMessage.value = checkFormSubmitttion(+newState.area, authStore.user.role_id, newState)
     }
 })
+watch([state.value, mergedGuestsList], ([newVal1, newVal2]) => {
+    if(newVal1 && newVal1.area && authStore.user) {
+        areaMessage.value = checkFormSubmitttion(+newVal1.area, authStore.user.role_id, newVal1)
+    }
+    if(newVal1 && newVal1.area && newVal2 && authStore.user) {
+        areaMessage.value = checkFormSubmitttion(+newVal1.area, authStore.user.role_id, newVal1, newVal2.length)
+    }
+});
+// watch(mergedGuestsList, (newVal) => {
+//     if(newVal && authStore.user) {
+//         areaMessage.value = checkFormSubmitttion(+state.value.area, authStore.user.role_id, newVal.length)
+//     }
+//     console.log(newVal.length);
+// })
 
 // Submit Meeting
 const loading = ref<boolean>(false)
@@ -227,15 +244,15 @@ const submitHandler = async () => {
         return authStore.user?.id || null;
     };
 
-    const acc = state.value.externalAccount[0]
 
     formData.append('title', state.value.title);
     formData.append('start_date', startDateTime);
     formData.append('end_date', endDateTime);
     formData.append('area_id', state.value.area);
+    formData.append('market_id', state.value.market.toString());
     formData.append('organizer_id', String(setOrganizer() ?? ''));
     if(props.method === 'add') { 
-        formData.append('external_account_id', acc);
+        formData.append('external_account_ids', JSON.stringify(state.value.externalAccount)) 
         formData.append('guests', JSON.stringify(mergedGuestsList.value)) 
     }
     formData.append('internal_comment', state.value.internalComment);
@@ -310,8 +327,12 @@ const submitHandler = async () => {
                     <label class="form-label">Organizer</label>
                     <SelectOrganizer v-model="state.organizer" />
                 </div>
-                <div></div>
             </template>
+
+            <div class="form-group">
+                <label class="form-label">Market</label>
+                <SelectMarket v-model="state.market" retour-value="id" />
+            </div>
 
             <template v-if="method === 'add'">
                 <div class="guests-wrapper">

@@ -7,8 +7,18 @@ export interface ExternalAccount {
     clients: UserSmall[];
 }
 
+export interface ExternalAccountSmall {
+    id: number;
+    label: string;
+    market_label: string;
+}
+
 interface Market {
     id: number;
     label: string;
 }
 
+export interface ExternalAccountType {
+    state: boolean;
+    type: 'single' | 'multiselect'
+}

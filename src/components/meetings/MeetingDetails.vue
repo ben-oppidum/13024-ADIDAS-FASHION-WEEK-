@@ -3,16 +3,16 @@ import { computed } from 'vue'
 import { useConfirm } from "primevue/useconfirm"
 
 import { useAuthStore } from '@/stores/auth'
-import { getExternalAccounts, formatDate, meetingStatus } from '@/functions'
+import { getExternalAccounts, formatDate, meetingStatus, getRoleName } from '@/functions'
 
 import { useMeetings } from '@/composables/useMeetings'
-import type { Meeting, Guest } from "@/interfaces/meeting"
+import type { Meeting } from "@/interfaces/meeting"
 import type { UseMeetingsReturn } from '@/composables/useMeetings'
 
 // Global
 const authStore = useAuthStore()
 const confirm = useConfirm()
-const emit = defineEmits(['updateCanceledMeeting', 'updateEditedMeeting'])
+const emit = defineEmits(['updateCanceledMeeting', 'updateEditedMeeting', 'updateEditedGuestsMeeting'])
 const props = defineProps<{
     meeting: Meeting
 }>()
@@ -21,7 +21,11 @@ const props = defineProps<{
 const { deleteMeeting }: UseMeetingsReturn = useMeetings(false)
 
 // Get Meeting External Accounts from Guests
-const externalAccounts = computed(() => getExternalAccounts(props.meeting))
+const externalAccounts = computed(() => {
+    if(props.meeting.external_account_ids && authStore.externalAccountsSmall) {
+        return getExternalAccounts(props.meeting.external_account_ids, authStore.externalAccountsSmall)
+    }
+})
 
 // Check the Meeting Ability to Edit
 const canEditMeeting = computed(() => {
@@ -35,8 +39,9 @@ const canEditMeeting = computed(() => {
 })
 
 // Edit Meeting
-const setEditMeeting = () => {
-    emit("updateEditedMeeting", props.meeting.meeting_id);
+const setEditMeeting = (type:string) => {
+    if(type === 'edit') emit("updateEditedMeeting", props.meeting.meeting_id);
+    if(type === 'editGuests') emit("updateEditedGuestsMeeting", props.meeting.meeting_id);
 }
 
 // Delete Meeting
@@ -70,6 +75,35 @@ const setDeleteMeeting = async () => {
 
 <template>
     <div class="relative flex flex-col h-full">
+
+        <div class="flex gap-x-3 w-full mb-6">
+            <Button 
+                v-if="canEditMeeting"
+                label="Edit" 
+                icon="pi pi-pencil" 
+                iconPos="right" 
+                fluid 
+                @click="setEditMeeting('edit')" 
+            />
+            <Button 
+                v-if="canEditMeeting"
+                label="Edit guests" 
+                icon="pi pi-user-plus" 
+                iconPos="right" 
+                fluid 
+                @click="setEditMeeting('editGuests')" 
+            />
+            <Button 
+                v-if="authStore.isAdmin"
+                label="Cancel" 
+                icon="pi pi-times" 
+                iconPos="right" 
+                severity="danger" 
+                fluid 
+                @click="setDeleteMeeting" 
+            />
+        </div>
+
         <h5 class="drawer-section-title">
             <span>
                 <i class="pi pi-info-circle"></i>
@@ -97,10 +131,10 @@ const setDeleteMeeting = async () => {
                 <span>Area</span>
                 <span>{{ meeting.area.label }}</span>
             </li>
-            <li>
+            <!-- <li>
                 <span>Market</span>
                 <span>{{ meeting.market.label }}</span>
-            </li>
+            </li> -->
             <li>
                 <span>Guests count</span>
                 <span>{{ meeting.guests && `${meeting.guests.length}+` }}</span>
@@ -120,7 +154,7 @@ const setDeleteMeeting = async () => {
             </h5>
             <ul class="list">
                 <li v-for="(ex, index) in externalAccounts" :key="index">
-                    <span>{{ `${index + 1} - ${ex}` }}</span>
+                    <span>{{ `${index + 1} - ${ex.label} - ${ex.market_label}` }}</span>
                 </li>
             </ul>
         </div>
@@ -151,7 +185,7 @@ const setDeleteMeeting = async () => {
                     Guests ({{ meeting.guests.length }})
                 </span>
             </h5>
-            <div v-for="guest in meeting.guests" :key="guest.id" class="bg-slate-50 border border-gray-200 p-3 rounded-md mb-3">
+            <div v-for="guest in meeting.guests" :key="guest.id" class="bg-slate-50 border border-gray-200 py-1 px-3 rounded-md mb-3">
                 <ul class="list">
                     <li>
                         <span>Full name</span>
@@ -161,33 +195,17 @@ const setDeleteMeeting = async () => {
                         <span>Email</span>
                         <span>{{ guest.email }}</span>
                     </li>
-                    <li>
+                    <li v-if="guest.position">
                         <span>Title</span>
                         <span>{{ guest.position }}</span>
+                    </li>
+                    <li>
+                        <span>Rôle</span>
+                        <span>{{ getRoleName(guest.role_id) }}</span>
                     </li>
                 </ul>
             </div>
 
-        </div>
-        
-        <div class="flex gap-x-3 w-full pt-8 pb-4 mt-auto">
-            <Button 
-                v-if="canEditMeeting"
-                label="Edit" 
-                icon="pi pi-pencil" 
-                iconPos="right" 
-                fluid 
-                @click="setEditMeeting" 
-            />
-            <Button 
-                v-if="authStore.isAdmin"
-                label="Cancel" 
-                icon="pi pi-times" 
-                iconPos="right" 
-                severity="danger" 
-                fluid 
-                @click="setDeleteMeeting" 
-            />
         </div>
 
         <ConfirmDialog :group="`delete-meeting-${meeting.meeting_id}`"></ConfirmDialog>

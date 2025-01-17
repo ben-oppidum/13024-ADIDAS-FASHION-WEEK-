@@ -13,8 +13,7 @@ const props = defineProps<{
 
 // Check if Badge Received (For Sales only)
 const badge = computed(() => {
-    if(!authStore.user) return null
-    if(authStore.user.role.id === 6) return null
+    if(props.contact.role.id === 6) return null
 
     return props.contact.badge && props.contact.badge.received ? 
         { cls: 'text-green-500', icon: 'pi-check', message: `Badge received at ${formatDate(props.contact.badge.date)}` } :
@@ -75,6 +74,20 @@ const badge = computed(() => {
                 </span>
             </li>
         </ul>
+        
+        <div v-if="contact.external_account && contact.external_account.length > 0" class="mt-4">
+            <h5 class="drawer-section-title">
+                <span>
+                    <i class="pi pi-user"></i>
+                    External Account
+                </span>
+            </h5>
+            <ul class="list">
+                <li v-for="(ex, index) in contact.external_account" :key="index">
+                    <span>{{ `${index + 1} - ${ex.label}` }}</span>
+                </li>
+            </ul>
+        </div>
 
         <div v-if="contact.meetings" class="mt-4">
             <h5 class="drawer-section-title">
@@ -88,7 +101,7 @@ const badge = computed(() => {
                 <div v-for="meeting in contact.meetings" :key="meeting.id" class="bg-slate-50 border border-gray-200 p-3 rounded-md mb-3">
                     <div>
                         <span class="block font-semibold text-primary">Date</span>
-                        <span>{{ `${formatDate(meeting.start_date, 'DD-MM-YYYY HH:mm')} ${formatDate(meeting.end_date, 'HH:mm')}` }}</span>
+                        <span>{{ `${formatDate(meeting.start_date, 'DD-MM-YYYY HH:mm')} / ${formatDate(meeting.end_date, 'HH:mm')}` }}</span>
                     </div>
                 </div>
             </template>

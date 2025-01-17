@@ -15,7 +15,7 @@ export interface User {
     market?: Market;
     qrcode: string;
     badge: Badge;
-    external_account?: ExternalAccount;
+    external_account?: ExternalAccount[];
     meetings: UserMeeting[];
 }
 

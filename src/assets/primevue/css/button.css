@@ -73,6 +73,14 @@
     @apply rounded-[2rem]
 }
 
+.p-button-primary-outline {
+    @apply bg-transparent enabled:hover:bg-primary
+        border-primary enabled:hover:border-primary enabled:active:border-primary
+        text-primary enabled:hover:text-white enabled:active:text-white
+        focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 
+        focus-visible:outline-surface-600 dark:focus-visible:outline-surface-300
+}
+
 .p-button-dark {
     @apply bg-surface-900 enabled:hover:bg-surface-800 enabled:active:bg-surface-800
         border-surface-900 enabled:hover:border-surface-800 enabled:active:border-surface-800
