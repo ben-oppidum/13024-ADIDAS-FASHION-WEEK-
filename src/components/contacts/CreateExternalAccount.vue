@@ -6,7 +6,7 @@ import { useToast } from "primevue/usetoast"
 import type { Market } from '@/interfaces/market'
 
 import { useAuthStore } from '@/stores/auth'
-import { convertToIso, axiosHeader } from '@/functions'
+import { axiosHeader } from '@/functions'
 import { endPoint } from '@/stores/environment'
 
 // Global
@@ -16,6 +16,17 @@ const toast = useToast()
 const props = defineProps<{
     markets: Market[] | null
 }>()
+
+// Check Existing External Account
+const isExistingExAccount = ref<boolean>(false) 
+function checkExistingExAccount() {
+    if(authStore.externalAccountsSmall) {
+        const isExisting = authStore.externalAccountsSmall.some(item => item.label.toLocaleLowerCase() === state.value.exAccount.toLowerCase());
+        return isExistingExAccount.value = isExisting
+    }
+
+    return isExistingExAccount.value = false
+}
 
 // State Gorm
 const errorMessage = ref<string | null>(null)
@@ -59,7 +70,9 @@ const submitHandler = async () => {
                 type="text" 
                 placeholder="Choose a title" 
                 fluid 
+                @input="checkExistingExAccount"
             />
+            <p v-if="isExistingExAccount" class="text-red-500 font-semibold mt-2">Be careful: This external account already exists</p>
         </div>
         <div v-if="markets" class="form-group">
             <label class="form-label">Market</label>
@@ -80,7 +93,7 @@ const submitHandler = async () => {
                 :icon="authStore.isAdmin ? '' : 'pi pi-hourglass'"
                 iconPos="right"
                 type="submit" 
-                :disabled="state.exAccount === '' || state.market === ''"
+                :disabled="state.exAccount === '' || state.market === '' || isExistingExAccount"
                 :loading="loading"
                 @click="submitHandler"
             />

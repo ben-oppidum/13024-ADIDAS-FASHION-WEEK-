@@ -1,5 +1,7 @@
 import moment from 'moment/min/moment-with-locales'
 import type { UserSmall } from '@/interfaces/user-small'
+import type { Meeting, Guest } from '@/interfaces/meeting';
+import type { ExternalAccountSmall, ExternalAccountType } from '@/interfaces/external-account'
 
 // Format Date
 export const formatDate = (date:string | Date, format = 'DD-MM-YYYY') => moment.utc(date).format(format);
@@ -77,4 +79,45 @@ export function convertToIso(date: string, time: string) {
     const formattedDateTime = dateTime.toISOString();
 
     return formattedDateTime
+}
+
+// Get External Account from meeting
+export const getExternalAccounts = (ids:number[], externalAccounts:ExternalAccountSmall[]) => {
+    const filteredData = externalAccounts.filter(ex => ids.includes(ex.id));
+    return filteredData.length > 0 ? filteredData : null
+    // const guests = meeting.guests.map((g:Guest) => g.external_account_label)
+    // const uniqueExternalAccounts = [...new Set(guests.filter((label) => label !== null && label !== undefined))];
+    
+    // return uniqueExternalAccounts.length > 0 ? uniqueExternalAccounts : null
+}
+
+export const getExternalAccountLabel = (ids:number[], externalAccounts:ExternalAccountSmall[]) => {
+    if(ids && externalAccounts) {
+        let labels:any = []
+
+        const filteredData = externalAccounts.filter(ex => ids.includes(ex.id));
+        filteredData.forEach(el => {
+            labels.push(`${el.label} - ${el.market_label}`)
+        });
+        return labels.join("").toString()
+    }
+
+    return null
+}
+
+export function setExternalAccountSelect(userRole:number, exType:ExternalAccountType) {
+    exType.state = false
+
+    if(userRole && userRole === 6) {
+        exType.state = true
+        exType.type = 'single'
+        return 
+    }
+    if(userRole && (userRole === 2 || userRole === 3 || userRole === 5)) {
+        exType.state = true
+        exType.type = 'multiselect'
+        return
+    }
+
+    return exType
 }

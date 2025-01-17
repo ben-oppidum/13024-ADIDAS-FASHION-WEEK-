@@ -15,7 +15,7 @@
 /* @import './floatlabel'; */
 /* @import './knob'; */
 /* @import './listbox'; */
-/* @import './multiselect'; */
+@import './multiselect';
 /* @import './password'; */
 @import './radiobutton';
 /* @import './rating'; */
@@ -24,7 +24,7 @@
 /* @import './slider'; */
 /* @import './textarea'; */
 @import './togglebutton';
-/* @import './toggleswitch'; */
+@import './toggleswitch';
 /* @import './treeselect'; */
 
 /* Button */

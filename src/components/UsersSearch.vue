@@ -73,8 +73,8 @@ const addGuest = (guest:UserSmall) => {
             <input
                 v-model="searchQuery"
                 type="text"
-                placeholder="Search by first or last name"
-                class="form-input form-input-small"
+                placeholder="Search by First or Last Name"
+                class="form-input"
             />
         </div>
         

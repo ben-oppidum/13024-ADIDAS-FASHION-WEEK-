@@ -1,9 +1,9 @@
-export type RoleNumber = 1 | 2 | 3 | 4 | 5 | 6;
+export type RoleNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export interface User {
     id: number;
     created_at: string;  
-    updated_at: string; 
+    updated_at?: string; 
     reference: string;
     first_name: string;
     last_name: string;
@@ -12,11 +12,26 @@ export interface User {
     role: Role;
     phone?: string | null; 
     position: string;
-    market_id: number;
+    market?: Market;
     qrcode: string;
-    badge_received: number;
-    badge_received_at?: string | null; 
+    badge: Badge;
+    external_account?: ExternalAccount[];
     meetings: UserMeeting[];
+}
+
+interface ExternalAccount {
+    id: number;
+    label: string;
+}
+
+interface Badge {
+    received: boolean;
+    date: string
+}
+
+interface Market {
+    id: number;
+    label: string
 }
 
 interface Role {

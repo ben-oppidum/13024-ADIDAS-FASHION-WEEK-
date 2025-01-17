@@ -12,13 +12,13 @@ export interface Meeting {
     end_date: string;
     internal_comment: string;
     client_comment: string;
-    external_account_id: number;
     status: number;
     area: Area;
     guests: Guest[];
     external_account: ExternalAccount;
     organizer: Organizer;
     market: Market;
+    external_account_ids: number[] | null;
 }
 
 export interface MeetingCalendar {
@@ -34,12 +34,15 @@ export interface MeetingCalendar {
 }
 
 export interface MeetingContent {
-    hour: string;
+    startHour: string;
+    endHour: string;
     guests: number;
     title: string;
-    info: string;
     areaId: number;
-    exAccount: number;
+    organizer: string;
+    externalAccountIds: number[] | null;
+    meetingMarket: number;
+    markets: string[]
 }
   
 export interface Guest {
@@ -51,6 +54,8 @@ export interface Guest {
     email: string;
     position: string;
     role_id: number;
+    external_account_label: string;
+    market: string;
 }
 
 export interface Market {
@@ -63,4 +68,12 @@ export interface Organizer {
     first_name: string;
     last_name: string;
     role: string;
+}
+
+export interface OpenDialog {
+    date?: Date;
+    meeting?: Meeting;
+    meetingId?: string;
+    type: string;
+    dialogTitle: string;
 }

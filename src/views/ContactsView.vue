@@ -4,6 +4,7 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import { useToast } from "primevue/usetoast"
 import Paginator from 'primevue/paginator'
+import ToggleSwitch from 'primevue/toggleswitch';
 import { useMagicKeys } from '@vueuse/core'
 
 import { useUsers } from '@/composables/useUsers'
@@ -15,13 +16,17 @@ import type { useMarketsReturn } from '@/composables/useMarkets'
 import { useExternalAccount } from '@/composables/useExternalAccount'
 import type { UseExternalAccountReturn } from '@/composables/useExternalAccount'
 
-import type { Notification } from '@/interfaces/user'
+import type { User, Notification } from '@/interfaces/user'
 
 import { useGlobalStore } from '@/stores/global'
-import { fromNowDate, getAreaType, formatDate, meetingStatus } from '@/functions'
+import { getAreaType, formatDate } from '@/functions'
 
 import CreateExternalAccount from '@/components/contacts/CreateExternalAccount.vue'
 import CreateNewContact from '@/components/contacts/CreateNewContact.vue'
+import SelectExAccount from '@/components/SelectExAccount.vue'
+import ContactDetails from '@/components/contacts/ContactDetails.vue'
+import EditExternalAccount from '@/components/contacts/EditExternalAccount.vue'
+import { onMounted } from 'vue'
 
 // Global
 const store = useGlobalStore()
@@ -30,6 +35,7 @@ const { enter } = useMagicKeys()
 
 // Get Users 
 const { users: contacts, loading: loadingContacts, pagination, getUsers }: UseUsersReturn = useUsers(false)
+onMounted(async () => { await getUsers() })
 
 // Get Markets 
 const { markets, loading: loadingMarkets }: useMarketsReturn = useMarkets(true)
@@ -38,7 +44,6 @@ const { markets, loading: loadingMarkets }: useMarketsReturn = useMarkets(true)
 const { externalAccounts, loading: loadingExAccount }: UseExternalAccountReturn = useExternalAccount(true)
 
 // Table Config
-const staticmeetingStatus = ref(1)
 const expandedRows = ref({});
 
 // Table Pagination
@@ -49,52 +54,86 @@ interface TablePagination {
     rows: number;
 }
 const setPage = async (e:TablePagination) => {
-    console.log(e);
     const nextPage = e.page + 1
     query.value.has('page') ? 
         query.value.set('page', nextPage.toString()) : 
         query.value.append('page', nextPage.toString())
+
+    query.value.has('limit') ? 
+        query.value.set('limit', e.rows.toString()) : 
+        query.value.append('limit', e.rows.toString())
 
     await getUsers(query.value.toString())
 }
 
 // Account Type
 const selectedAccountType = ref<string>('')
-const accountsType = ref([
-    { name: 'Adidas Team', code: 'adidas' },
-    { name: 'External Account', code: 'exAccount' },
-]);
 
 // Set Account Type
 const selectedRole = ref<string | null>(null)
 const setAccountType = async () => {
-    if(selectedAccountType.value === 'exAccount') selectedRole.value = 'role=6'
-    if(selectedAccountType.value === 'adidas') selectedRole.value = 'role=1,2,3,4,5'
+    if(+selectedAccountType.value !== 0) {
+        selectedRole.value = `role=${selectedAccountType.value}`
+        query.value.append('role', selectedAccountType.value.toString())
+    } else {
+        selectedRole.value = ''
+        query.value.delete('role');
+    }
+    
+    resetFields()
+    deleteParameter()
 
     if(selectedRole.value) await getUsers(selectedRole.value)
 }
 
 // Filter Contacts
-const filter = ref<Record<string, string>>({
+interface Filter {
+    fullname: string;
+    role: number | string;
+    exAccount: number;
+    market: number;
+    hasMeetings: boolean;
+    [key: string]: string | boolean | number; 
+}
+const filter = ref<Filter>({
     fullname: '',
-    exAccount: '',
-    market: '',
-    role: ''
+    role: '',
+    exAccount: 0,
+    market: 0,
+    hasMeetings: false
 });
 
 // Clear Filter
 const clearFilter = ref<boolean>(false)
-const setClearFilter = async () => {
-    clearFilter.value = false
-    canFilter.value = false
+const resetFields = () => {
+    clearFilter.value = false;
+    canFilter.value = false;
 
     for (const key in filter.value) {
         if (filter.value.hasOwnProperty(key)) {
-            filter.value[key] = '';
+            const filterKey = key as keyof Filter;
+            if (typeof filter.value[filterKey] === 'string' || filter.value.role) {
+                filter.value[filterKey] = '';
+            } else if (typeof filter.value[filterKey] === 'boolean') {
+                filter.value[filterKey] = false;
+            } else if (typeof filter.value[filterKey] === 'number') {
+                filter.value[filterKey] = 0;
+            }
         }
     }
+}
+const paginationkey = ref(1)
+const setClearFilter = async () => {
+    resetFields()
     deleteParameter()
-    if(selectedRole.value) await getUsers(selectedRole.value)
+
+    // Reset Pagination
+    query.value.set('page', '1')
+    if(pagination.value) pagination.value.currentPage = 1
+    paginationkey.value++
+
+    // Fetch Users
+    await getUsers(query.value.toString())
 }
 
 // Block Filter Button if any input is empty
@@ -109,6 +148,8 @@ const deleteParameter = () => {
     query.value.delete('fullname');
     query.value.delete('market');
     query.value.delete('role');
+    query.value.delete('external_account');
+    query.value.delete('hasMeetings');
 }
 
 // Search Contact Server-Side
@@ -117,8 +158,10 @@ const searchContacts = async () => {
     deleteParameter()
 
     if (filter.value.fullname !== '') query.value.append('fullname', filter.value.fullname.toLowerCase());
-    if (filter.value.market !== '') query.value.append('market', filter.value.market);
-    if (filter.value.role !== '') query.value.append('role', filter.value.role);
+    if (filter.value.market !== 0) query.value.append('market', filter.value.market.toString());
+    if (filter.value.role !== '') query.value.append('role', filter.value.role.toString());
+    if (filter.value.exAccount !== 0) query.value.append('external_account', filter.value.exAccount.toString());
+    if (filter.value.hasMeetings === true) query.value.append('hasMeetings', filter.value.hasMeetings.toString());
 
     await getUsers(query.value.toString())
     clearFilter.value = true
@@ -131,17 +174,28 @@ watch(enter, async (v) => {
 const exAccountDialog = ref<boolean>(false)
 
 // New Account Dialog
-const accountType = ref<string | null>(null)
 const newContactDialog = ref<boolean>(false)
 
-// const setContactDialog = () => {
-//     accountType.value = type
-//     newContactDialog.value =  true
-// }
+// Edit Account Dialog
+const editContactDialog = ref<boolean>(false)
+const selectedUserToEdit = ref<User | null>(null)
+const editAccount = (user:User) => {
+    selectedUserToEdit.value = user
+    editContactDialog.value = true
+}
+
+// Edit External Account Dialog
+const editExAccountDialog = ref<boolean>(false)
+const editExAccount = (user:User) => {
+    selectedUserToEdit.value = user
+    editExAccountDialog.value = true
+}
 
 // Get Notification
 const getNotificationOnSubmit = async (e:Notification) => {
     newContactDialog.value = false
+    editContactDialog.value = false
+    editExAccountDialog.value = false
 
     toast.add({ 
         severity: e.severity, 
@@ -152,6 +206,35 @@ const getNotificationOnSubmit = async (e:Notification) => {
     });
 
     if(selectedRole.value) await getUsers(selectedRole.value)
+}
+
+// Get Expternal Accounts Label
+interface ExternalAccount {
+    id: number;
+    label: string;
+}
+const getExternalAccountLabel = (externalAccounts:ExternalAccount[]) => {
+    if(externalAccounts && Array.isArray(externalAccounts)) {
+        const labels = externalAccounts.map(e => e.label)
+        const uniqueExternalAccounts = [...new Set(labels.filter((label) => label !== null && label !== undefined))];
+        return uniqueExternalAccounts.join(" - ").toString()
+    }
+}
+
+// View More 
+const drawerViewMore = ref<boolean>(false)
+const selectedContact = ref<User | null>(null)
+
+const viewMore = async (user:User) => {
+    drawerViewMore.value = true
+    selectedContact.value = user
+}
+
+// Send Whatsapp Message
+const sendWAMessage = (phone:string) => {
+    const targetPhoneNumber = phone.replace(/\(0\)|\s+/g, '');
+    const url = `https://wa.me/${targetPhoneNumber}`;
+    window.open(url, '_blank');
 }
 </script>
 
@@ -176,23 +259,8 @@ const getNotificationOnSubmit = async (e:Notification) => {
             </PageTitle>
             <div class="mt-8">
 
-                <div class="grid grid-cols-4">  
-                    <div class="form-group">
-                        <label class="form-label">Account type</label>
-                        <Select 
-                            v-model="selectedAccountType" 
-                            :options="accountsType" 
-                            optionLabel="name" 
-                            optionValue="code" 
-                            placeholder="Please select a type" 
-                            class="w-full"
-                            @change="setAccountType"
-                        />
-                    </div>
-                </div>
-
-                <div v-if="selectedAccountType" class="grid grid-cols-14 gap-x-3 py-3 my-3 border-y border-gray-200">  
-                    <div class="form-group col-span-4 !mb-0">
+                <div class="grid grid-cols-12 gap-x-3 py-3 my-3 border-y border-gray-200">  
+                    <div class="form-group col-span-6">
                         <label class="form-label">Search by Name or Surname"</label>
                         <InputText 
                             v-model="filter.fullname" 
@@ -202,44 +270,22 @@ const getNotificationOnSubmit = async (e:Notification) => {
                             fluid
                          />
                     </div>
-                    <template v-if="selectedAccountType === 'adidas'">
-                        <div class="form-group col-span-4 !mb-0">
-                            <label class="form-label">Filter by type of contact</label>
-                            <Select 
-                                v-model="filter.role" 
-                                :options="store.roles" 
-                                optionLabel="name" 
-                                optionValue="id" 
-                                placeholder="Please select a type" 
-                                class="w-full" 
-                            />
-                        </div>
-                    </template>
-                    <template v-if="selectedAccountType === 'exAccount'">
-                        <div class="form-group col-span-3 !mb-0">
-                            <label class="form-label">Filter by Sales</label>
-                            <Select 
-                                v-model="selectedAccountType" 
-                                :options="accountsType" 
-                                optionLabel="name" 
-                                placeholder="Please select a type" 
-                                class="w-full" 
-                            />
-                        </div>
-                        <div class="form-group col-span-3 !mb-0">
-                            <label class="form-label">Filter by External Account</label>
-                            <Select 
-                                v-model="filter.exAccount" 
-                                :options="externalAccounts || []" 
-                                optionLabel="label"
-                                optionValue="id"
-                                placeholder="Please select an External account"
-                                :loading="loadingExAccount"
-                                class="w-full" 
-                            />
-                        </div>
-                    </template>
-                    <div :class="['form-group !mb-0', selectedAccountType === 'adidas' ? 'col-span-4' : 'col-span-3']">
+                    <div class="form-group col-span-3">
+                        <label class="form-label">Account type</label>
+                        <Select 
+                            v-model="filter.role" 
+                            :options="[{ id: 0, name: 'All Roles',}, ...store.roles ]" 
+                            optionLabel="name" 
+                            optionValue="id" 
+                            placeholder="Please select a type" 
+                            class="w-full"
+                        />
+                    </div>
+                    <div class="form-group col-span-3">
+                        <label class="form-label">Filter by External Account</label>
+                        <SelectExAccount v-model:="filter.exAccount" />
+                    </div>
+                    <div class="form-group col-span-3 !mb-0">
                         <label class="form-label">Filter by Market</label>
                         <Select 
                             v-model="filter.market" 
@@ -251,8 +297,12 @@ const getNotificationOnSubmit = async (e:Notification) => {
                             class="w-full" 
                         />
                     </div>
+                    <div class="form-group col-span-3 !mb-0">
+                        <label class="form-label">Only with Meetings</label>
+                        <ToggleSwitch v-model="filter.hasMeetings" class="mt-2" />
+                    </div>
 
-                    <div :class="['flex items-end justify-end', , selectedAccountType === 'adidas' ? 'col-span-2' : 'col-span-1']">
+                    <div class="flex items-end justify-end gap-x-3 col-span-6">
                         <Button 
                             label="Search"
                             icon="pi pi-search"
@@ -260,6 +310,13 @@ const getNotificationOnSubmit = async (e:Notification) => {
                             :disabled="!canFilter"
                             @click="searchContacts"
                             @keydown.enter="searchContacts"
+                        />
+                        <Button 
+                            v-if="clearFilter"
+                            label="Clear filter"
+                            severity="primary-outline"
+                            icon="pi pi-filter-slash"
+                            @click="setClearFilter"
                         />
                     </div>
 
@@ -269,13 +326,9 @@ const getNotificationOnSubmit = async (e:Notification) => {
                     <div>
                         <span v-if="pagination" class="text-gray-500">{{ `${pagination.totalItems} items found on database` }}</span>
                     </div>
-                    <button v-if="clearFilter" type="button" @click="setClearFilter" class="text-gray-500 flex items-center gap-x-2">
-                        <i class="pi pi-filter-slash"></i>
-                        Clear filter
-                    </button>
                 </div>
 
-                <div v-if="selectedAccountType" class="mt-8">
+                <div class="mt-8">
                     <DataTable 
                         :value="contacts" 
                         dataKey="id" 
@@ -289,20 +342,30 @@ const getNotificationOnSubmit = async (e:Notification) => {
                         tableStyle="min-width: 1200px"
                     >
 
-                        <template #empty>No contact found on database</template>
+                        <template #empty>
+                            <div class="empty-data">
+                                <i class="pi pi-exclamation-circle"></i> 
+                                No contact found on database
+                            </div>
+                        </template>
                         <Column expander style="width: 50px" />
 
-                        <Column field="qrcode" header="ID (Qr code)"></Column>
+                        <Column field="reference" header="ID (Qr code)"></Column>
                         <Column field="first_name" header="Name"></Column>
                         <Column field="last_name" header="Surname"></Column>
                         <Column field="email" header="Email"></Column>
                         <Column field="phone" header="Phone number"></Column>
-                        <Column header="Type of contact">
+                        <Column header="Type of contact" class="w-[160px]">
                             <template #body="{ data }">
                                 <span v-if="data.role">{{ data.role.role_name }}</span>
                             </template>
                         </Column>
                         <Column field="position" header="Title"></Column>
+                        <Column v-if="+selectedAccountType === 6" header="Ex Account">
+                            <template #body="{ data }">
+                                <span v-if="data.external_account && data.role.id === 6">{{ getExternalAccountLabel(data.external_account) }}</span>
+                            </template>
+                        </Column>
                         <Column header="Market">
                             <template #body="{ data }">
                                 <span v-if="data.market">{{ data.market.label }}</span>
@@ -310,19 +373,53 @@ const getNotificationOnSubmit = async (e:Notification) => {
                         </Column>
                         <Column header="Action">
                             <template #body="{ data }">
-                                <div class="flex gap-x-2">
-                                    <Button 
+                                <div class="flex gap-x-1">
+                                    <!-- <Button 
                                         label="Agenda"
                                         icon="pi pi-plus"
                                         icon-pos="right"
                                         size="small"
-                                    />
+                                    /> -->
+                                    <button 
+                                        type="button" 
+                                        class="table-action edit"
+                                        v-tooltip.top="'View more'"
+                                        placeholder="Top"
+                                        @click="viewMore(data)"
+                                    >
+                                        <i class="pi pi-eye"></i>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="table-action edit"
+                                        v-tooltip.top="'Edit'"
+                                        placeholder="Top"
+                                        @click="editAccount(data)"
+                                    >
+                                        <i class="pi pi-pencil"></i>
+                                    </button>
+                                    <button 
+                                        v-if="
+                                            data.role.id === 2 || 
+                                            data.role.id === 3 ||
+                                            data.role.id === 5 ||
+                                            data.role.id === 6
+                                        "
+                                        type="button" 
+                                        class="table-action edit"
+                                        v-tooltip.top="'Edit External Account'"
+                                        placeholder="Top"
+                                        @click="editExAccount(data)"
+                                    >
+                                        <i class="pi pi-users"></i>
+                                    </button>
                                     <button 
                                         v-if="data.phone"
                                         type="button" 
                                         class="table-action whatsapp"
                                         v-tooltip.top="'Message on Whatsapp'"
                                         placeholder="Top"
+                                        @click="sendWAMessage(data.phone)"
                                     >
                                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <path fill-rule="evenodd" clip-rule="evenodd" d="M11.9035 2.03467C10.5933 0.723333 8.8515 0.000583333 6.99592 0C3.17217 0 0.0600833 3.1115 0.0583333 6.937C0.05775 8.15967 0.377417 9.35317 0.984667 10.4055L0 14L3.67733 13.0352C4.69058 13.5882 5.83158 13.8792 6.99242 13.8798H6.99533C10.8185 13.8798 13.9312 10.7677 13.9329 6.94225C13.9341 5.089 13.2131 3.34542 11.9035 2.03467ZM6.99592 12.7079H6.99358C5.95875 12.7079 4.94433 12.4297 4.05883 11.9041L3.84825 11.7793L1.666 12.3515L2.24875 10.2235L2.11167 10.0053C1.53417 9.08717 1.22967 8.02608 1.23025 6.937C1.23142 3.75783 3.8185 1.17133 6.99883 1.17133C8.53883 1.17133 9.98667 1.77217 11.0752 2.86183C12.1637 3.95208 12.7628 5.4005 12.7622 6.94108C12.7604 10.1214 10.1739 12.7079 6.99592 12.7079ZM10.1588 8.3895C9.9855 8.30258 9.13325 7.88317 8.974 7.82542C8.81533 7.76767 8.69983 7.7385 8.58375 7.91175C8.46767 8.085 8.13633 8.47583 8.03483 8.59192C7.93392 8.70742 7.83242 8.722 7.65917 8.63508C7.48592 8.54817 6.92708 8.36558 6.265 7.77467C5.74992 7.315 5.40167 6.74742 5.30075 6.57358C5.19983 6.39975 5.29025 6.30642 5.37658 6.22008C5.45475 6.1425 5.54983 6.01767 5.63675 5.91617C5.72425 5.81583 5.75283 5.7435 5.81117 5.62742C5.86892 5.51192 5.84033 5.41042 5.79658 5.3235C5.75283 5.23717 5.40633 4.38375 5.26225 4.03667C5.12167 3.69833 4.97875 3.74442 4.872 3.73917C4.77108 3.73392 4.65558 3.73333 4.5395 3.73333C4.424 3.73333 4.23617 3.7765 4.0775 3.95033C3.91883 4.12417 3.47083 4.54358 3.47083 5.39642C3.47083 6.24983 4.09208 7.07408 4.17842 7.18958C4.26475 7.30508 5.4005 9.05625 7.13942 9.807C7.553 9.9855 7.87617 10.0922 8.12758 10.1722C8.54292 10.304 8.92092 10.2853 9.21958 10.241C9.55267 10.1914 10.2451 9.82158 10.3898 9.41675C10.5344 9.01192 10.5344 8.66425 10.4907 8.5925C10.4475 8.51958 10.332 8.47642 10.1588 8.3895Z" fill="white"/>
@@ -345,7 +442,7 @@ const getNotificationOnSubmit = async (e:Notification) => {
                                     </Column>
                                     <Column header="Request Date">
                                         <template #body="{ data }">
-                                            <span class="line-clamp-2 capitalize">{{ fromNowDate(data.created_at) }}</span>
+                                            <span class="line-clamp-2 capitalize">{{ formatDate(data.created_at, 'DD-MM-YYYY - HH:mm') }}</span>
                                         </template>
                                     </Column>  
                                     <Column header="Organizer Type">
@@ -365,7 +462,11 @@ const getNotificationOnSubmit = async (e:Notification) => {
                                     </Column> 
                                     <Column header="Date & Time">
                                         <template #body="{ data }">
-                                            <span>{{ formatDate(data.start_date, 'DD-MM-YYYY - HH:mm') }}</span>
+                                            <span>{{ `
+                                                ${formatDate(data.start_date, 'DD-MM-YYYY - HH:mm')}
+                                                 / 
+                                                ${formatDate(data.end_date, 'HH:mm')}
+                                            ` }}</span>
                                         </template>
                                     </Column> 
                                 </DataTable>
@@ -374,13 +475,15 @@ const getNotificationOnSubmit = async (e:Notification) => {
 
                     </DataTable>
 
-                    {{ query }}
+                    Query : {{ query }}
+                    Pagination {{ pagination }}
 
                     <Paginator 
                         v-if="pagination"
+                        :key="paginationkey"
                         :rows="pagination.itemsPerPage" 
                         :totalRecords="pagination.totalItems" 
-                        :rowsPerPageOptions="[pagination.itemsPerPage, 10, 20, 30, 40, 50]"
+                        :rowsPerPageOptions="[20, 30, 40, 50, 100]"
                         @page="setPage"
                         class="mt-8"
                     ></Paginator>
@@ -414,8 +517,47 @@ const getNotificationOnSubmit = async (e:Notification) => {
                     />
             </Dialog>
 
+            <!-- Dialog Edit Contact -->
+            <Dialog 
+                v-model:visible="editContactDialog" 
+                modal 
+                :draggable="false" 
+                :style="{ width: '80vw' }" 
+                header="Edit contact"
+            >       
+                    <CreateNewContact 
+                        v-if="selectedUserToEdit"
+                        method="edit"
+                        :user="selectedUserToEdit"
+                        :markets="markets || null"
+                        @update-dialog="getNotificationOnSubmit"
+                    />
+            </Dialog>
+
+            <!-- Dialog Edit External Accounts -->
+            <Dialog 
+                v-model:visible="editExAccountDialog" 
+                modal 
+                :draggable="false" 
+                :style="{ width: '60vw' }" 
+                header="Edit External account"
+            >       
+                    <EditExternalAccount 
+                    v-if="selectedUserToEdit"
+                    :user="selectedUserToEdit"
+                    @update-dialog="getNotificationOnSubmit"
+                />
+            </Dialog>
+
+            <!-- Drawer View More -->
+            <Drawer v-model:visible="drawerViewMore" :header="selectedContact ? `${selectedContact.last_name.toUpperCase()} ${selectedContact.first_name}` : ''" position="right">
+                <ContactDetails v-if="selectedContact" :contact="selectedContact" />
+            </Drawer>
+
             <!-- Toasts -->
             <Toast position="top-center" group="createNewContact" />
+            <Toast position="top-center" group="editContact" />
+            <Toast position="top-center" group="editExAccount" />
 
         </div>
     </div>

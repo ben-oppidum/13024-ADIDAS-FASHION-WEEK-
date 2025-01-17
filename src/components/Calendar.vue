@@ -1,22 +1,29 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
+import { useToast } from "primevue/usetoast"
 import VueCal from 'vue-cal'
 import 'vue-cal/dist/drag-and-drop.es.js'
 import 'vue-cal/dist/vuecal.css'
-import Drawer from 'primevue/drawer'
 
 import { useAreas } from '@/composables/useAreas'
 import { useMeetings } from '@/composables/useMeetings'
-import type { Meeting } from '@/interfaces/meeting'
+import type { Meeting, Guest, MeetingCalendar, OpenDialog } from '@/interfaces/meeting'
 
 import type { UseAreasReturn } from '@/composables/useAreas'
 import type { UseMeetingsReturn } from '@/composables/useMeetings'
 
-import { formatDate, axiosHeader, meetingStatus } from '@/functions'
+// import { useMarkets } from '@/composables/useMarkets'
+// import type { useMarketsReturn } from '@/composables/useMarkets'
+
+import { useAuthStore } from '@/stores/auth'
+import { axiosHeader, getExternalAccountLabel } from '@/functions'
 import { endPoint } from '@/stores/environment'
 
+import SelectMarket from '@/components/SelectMarket.vue'
 import SelectExAccount from '@/components/SelectExAccount.vue'
+import MeetingDetails from '@/components/meetings/MeetingDetails.vue'
+import CalendarCard from '@/components/meetings/CalendarCard.vue'
 
 // TS
 type ViewType = 'week' | 'day';
@@ -26,10 +33,16 @@ interface ViewChangeEvent {
 }
 
 //  Global
+const authStore = useAuthStore()
 const header = axiosHeader()
+const toast = useToast()
+const emit = defineEmits(['openDialog'])
 
 // Get Areas
 const { areas, loading: loadingAreas }: UseAreasReturn = useAreas(true)
+
+// // Get Markets 
+// const { markets, loading: loadingMarkets }: useMarketsReturn = useMarkets(true)
 
 // Calendar Config
 const vuecal = ref<InstanceType<typeof VueCal> | null>(null);
@@ -37,10 +50,14 @@ const calendarConfig = ref({
     hideViewSelector: true,
     hideTitlebar: false,
     disableViews: ['years', 'year', 'month'],
-    activeView: 'week',
-    selectedDate: '2025-01-21',
+    activeView: 'day',
+    selectedDate: '2025-01-22',
     eventOnMonthView: false, // or short
-    disableDays: ['2025-01-20'],
+    disableDays: [], // Format : '2025-01-20'
+    minDate: '2025-01-20',
+    maxDate: '2025-01-26',
+    timeFrom: 8 * 60,
+    timeTo: 21 * 60,
     timeStep: 30,
     timeCellHeight: 60,
     editableEvents: { 
@@ -52,60 +69,104 @@ const calendarConfig = ref({
     },
 })
 
-// Calendar Title
-const calendarTitle = ref('')
-// function formatWeekInfo({ startDate, endDate, week }: { startDate: string, endDate: string, week: number }): string {
-//     const start = new Date(startDate);
-//     const end = new Date(endDate);
-    
-//     const startMonth = start.toLocaleString('en-US', { month: 'long' });
-//     const endMonth = end.toLocaleString('en-US', { month: 'long' });
+// Data
+const meetingStatusParams = 'status=2'
+const { 
+    meetingsCalendar: events, 
+    disabledHours, 
+    loading: loadingMeetings, 
+    getMeetings, 
+    setDisabledHours 
+}: UseMeetingsReturn = useMeetings(false, true)
+onMounted(async () => { await getMeetings(meetingStatusParams) })
 
-//     const startYear = start.getFullYear();
-//     const endYear = end.getFullYear();
+// Filter Data
+const filter = ref<Record<string, string>>({
+    area: '',
+    exAccount: '',
+    market: ''
+});
 
-//     // Check if months and years are the same
-//     if (startMonth === endMonth && startYear === endYear) {
-//         return `Week ${week} (${startMonth} ${startYear})`;
-//     } else {
-//         return `Week ${week} (${startMonth} ${startYear} - ${endMonth} ${endYear})`;
-//     }
-// }
-// function formatDayInfo(startDate: string | Date): string {
-//     const date = new Date(startDate);
+const filtredMeetings = computed(() => {
+    let filteredData = events.value;
+    for(let fc in filter.value) {
+        const value = filter.value[fc];
 
-//     const day = date.getDate(); 
-//     const month = date.toLocaleString('en-US', { month: 'long' }); 
-//     const year = date.getFullYear();
+        if (value != '') {
+            switch (fc) {
+                case 'area':
+                    clearFilter.value = true
+                    filteredData = filteredData && filteredData.filter((item) => {
+                        return item.content.areaId === +value
+                    })
+                    break;
 
-//     console.log(date);
+                case 'exAccount':
+                    clearFilter.value = true
+                    filteredData = filteredData && filteredData.filter((item) => {
+                        return item.content.externalAccountIds?.some(id => id === +value)
+                    })
+                    break;
 
-//     return `${day} ${month} ${year}`;
-// }
+                case 'market':
+                    clearFilter.value = true
+                    console.log(value);
+                    filteredData = filteredData && filteredData.filter((item) => {
+                        return item.content.meetingMarket === +value
+                    })
+                    break;
 
-// const onEventDrop = ({ event, originalEvent, external }) => {}
-const logEvents = (event: any): void => {
-    // if(calendarConfig.value.activeView === 'week') calendarTitle.value = 'From Monday 20 to Sunday 26 Jan'
-    // if(calendarConfig.value.activeView === 'day') calendarTitle.value = formatDayInfo(event.startDate)
-}
+                default:
+                    break;
+            }
+        } 
 
-const viewChange = (e: ViewChangeEvent) => {
-    console.log('View changed');
-    console.log(e);
-    //calendarTitle.value = formatDayInfo(e.startDate)
-    calendarConfig.value.activeView = e.view
-}
-
-// On Cell Click
-const emit = defineEmits(['openDialog'])
-const cellClick = (clickType:string, e:string) => {
-    if(clickType === 'click') {
-        emit("openDialog", e);
-        return
     }
 
-    //calendarTitle.value = formatDayInfo(e)
-    console.log(e);
+    return filteredData || []
+})
+
+// Clear Filter
+const clearFilter = ref<boolean>(false)
+const setClearFilter = async () => {
+    clearFilter.value = false
+    //setDisabledHours(1, true)
+
+    for (const key in filter.value) {
+        if (filter.value.hasOwnProperty(key)) {
+            filter.value[key] = '';
+        }
+    }
+
+    await getMeetings(meetingStatusParams)
+}
+
+const viewChange = (e: ViewChangeEvent) => calendarConfig.value.activeView = e.view
+
+// On Cell Click
+function checkDateRange(date:Date, events: MeetingCalendar[]) {
+    const targetDate = new Date(date);
+
+    return events.some(event => {
+        const eventStart = new Date(event.start);
+        const eventEnd = new Date(event.end);
+        return targetDate >= eventStart && targetDate <= eventEnd; 
+    });
+}
+
+const cellClick = (clickType:string, e:Date) => {
+    // Check first if cell is a disabled Meeting
+    const isDateInRange = events.value ? checkDateRange(e, events.value) : false
+    if(isDateInRange) return
+
+    if(clickType === 'click') {
+        emit("openDialog", {
+            date: e,
+            type: 'create',
+            dialogTitle: 'Create Meeting',
+        } as OpenDialog );
+        return
+    }
 }
 
 // Get Meeting with Meeting ID
@@ -134,94 +195,54 @@ const onEventClick = async  (e:any) => {
     }
 }
 
-const goToTodayDate = () => {
-    calendarConfig.value.selectedDate = new Date().toISOString()
-}
-
 // Toogle Days Week
 const changeView = (view: string) => calendarConfig.value.activeView = view
 
-// Navigate to the previous date
-const goToPrevious = () => {
-    const prevDate = vuecal.value && vuecal.value.allDayBar.cells && vuecal.value.allDayBar.cells[0].formattedDate || ''
-    vuecal.value.previous();
-    console.log(prevDate);
-    //calendarTitle.value = formatDayInfo(prevDate)
-};
-
-// Navigate to the next date
-const goToNext = () => {
-    const nextDate = vuecal.value && vuecal.value.allDayBar.cells && vuecal.value.allDayBar.cells[0].formattedDate || ''
-    vuecal.value.next();
-    //calendarTitle.value = formatDayInfo(nextDate)
-};
-// Data
-const { meetingsCalendar: events , loading: loadingMeetings, getMeetings }: UseMeetingsReturn = useMeetings(false, true)
-onMounted(async () => { getMeetings('status=2') })
-
-// Filter Data
-const filter = ref<Record<string, string>>({
-    exAccount: '',
-    area: ''
-});
-
-const filtredMeetings = computed(() => {
-    let filteredData = events.value;
-    for(let fc in filter.value) {
-        const value = filter.value[fc];
-
-        if (value != '') {
-            switch (fc) {
-                case 'exAccount':
-                    clearFilter.value = true
-                    filteredData = filteredData && filteredData.filter((item) => +item.content.exAccount === +value)
-                    break;
-
-                case 'area':
-                    clearFilter.value = true
-                    filteredData = filteredData && filteredData.filter((item) => +item.content.areaId === +value)
-                    break;
-
-                default:
-                    break;
-            }
-        } 
-    }
-
-    return filteredData
-})
-
-// Clear Filter
-const clearFilter = ref<boolean>(false)
-const setClearFilter = () => {
-    clearFilter.value = false
-    for (const key in filter.value) {
-        if (filter.value.hasOwnProperty(key)) {
-            filter.value[key] = '';
-        }
-    }
-
-    console.log(filter.value);
-}
-
-// Get External Account Client's
-const exAccountsClients = computed(() => {
-    console.log(events.value);
-})
-
 // Meeting Drawer
 const meetingDetails = ref<boolean>(false)
+
+// Get Edited Meeting From Drawer
+const getEditedMeeting = async (meetingId:string) => {
+    const foundMeeting = await getMeeting(meetingId)
+    if(foundMeeting) {
+        meetingDetails.value = false
+        emit("openDialog", {
+            meeting: foundMeeting,
+            type: 'edit',
+            dialogTitle: 'Edit Meeting'
+        } as OpenDialog );
+    }
+}
+
+// Get Edit Guest Meeting From Drawer
+const getEditedGuestsMeeting = async (meetingId:string) => {
+    const foundMeeting = await getMeeting(meetingId)
+    if(foundMeeting) {
+        meetingDetails.value = false
+        emit("openDialog", {
+            meeting: foundMeeting,
+            type: 'editGuests',
+            dialogTitle: `Edit Meeting's Guests`
+        } as OpenDialog );
+    }
+}
+
+// Get Canceled Meeting From Drawer
+const getCanceledMeeting = async (message:string) => {
+    meetingDetails.value = false
+    toast.add({ severity: 'success', summary: 'Message', detail: message,  group: `cancel-meeting`, life: 3000 });
+    
+    setTimeout(async () => {
+        await getMeetings(meetingStatusParams)
+    }, 2000);
+}
 </script>
 
 <template>
     <div>
-        <div class="grid grid-cols-7 gap-x-3 items-center mb-6">
-            <div class="form-group col-span-3">
-                <label class="form-label">Ext. Account (CLIENT)</label>
-                <SelectExAccount v-model:="filter.exAccount" />
-            </div>
-            <div class="font-semibold px-6 pt-3 text-center">Or</div>
-            <div class="form-group col-span-3">
+
+        <div class="grid grid-cols-12 gap-x-3 items-end mb-6">
+            <div class="form-group col-span-3 !mb-0">
                 <label class="form-label">Area</label>
                 <Select 
                     v-model="filter.area" 
@@ -233,33 +254,46 @@ const meetingDetails = ref<boolean>(false)
                     class="w-full" 
                 />
             </div>
-            <div class="col-span-7 flex justify-end">
-                <button v-if="clearFilter" type="button" @click="setClearFilter" class="text-gray-500 flex items-center gap-x-2 mt-2">
-                    <i class="pi pi-filter-slash"></i>
-                    Clear filter
-                </button>
+            <div class="form-group col-span-3 !mb-0">
+                <label class="form-label">External Account</label>
+                <SelectExAccount v-model:="filter.exAccount" />
+            </div>
+            
+            <div class="form-group col-span-3 !mb-0">
+                <label class="form-label">Market</label>
+                <SelectMarket v-model="filter.market" retour-value="id" />
+            </div>
+            
+            <!-- <div v-if="markets" class="form-group col-span-3">
+                <label class="form-label">Market</label>
+                <Select 
+                    v-model="filter.market" 
+                    :options="markets" 
+                    optionLabel="label"
+                    optionValue="label" 
+                    placeholder="Select a market" 
+                    class="w-full" 
+                />
+            </div> -->
+
+            <div class="flex justify-end items-end col-span-3 !mb-0">
+                <Button 
+                    v-if="clearFilter"
+                    label="Clear filter"
+                    severity="primary-outline"
+                    icon="pi pi-filter-slash"
+                    @click="setClearFilter"
+                />
             </div>
         </div>
+
         <div class="flex justify-end items-start mb-5">
-            <!-- <div class="flex bg-gray-100 text-gray-600 rounded-md">
-                <template v-if="calendarConfig.activeView === 'day'">
-                    <button class="px-3 py-3 flex items-center border-r border-white transition-all duration-100 ease-in-out" @click="goToPrevious">
-                        <i class="pi pi-chevron-left !text-xs"></i>
-                    </button>
-                    <button @click="goToTodayDate" class="font-semibold block leading-none px-6">Today</button>
-                    <button class="px-3 py-3 flex items-center border-l border-white transition-all duration-100 ease-in-out" @click="goToNext">
-                        <i class="pi pi-chevron-right !text-xs"></i>
-                    </button>
-                </template>
-            </div>
-            <div>
-                <h1 class="text-black font-semibold text-center text-xl capitalize">{{ calendarTitle }}</h1>
-            </div> -->
             <div class="flex gap-x-2 mb-4">
                 <button type="button" :class="['font-semibold py-2 px-4 rounded-lg hover:bg-gray-200 hover:text-gray-500 transition-all duration-100 ease-in-out', calendarConfig.activeView === 'week' ? 'bg-gray-900 hover:bg-gray-900 hover:text-white text-white' : 'text-gray-400']" @click="changeView('week')">Week</button>
                 <button type="button" :class="['font-semibold py-2 px-4 rounded-lg hover:bg-gray-200 hover:text-gray-500 transition-all duration-100 ease-in-out', calendarConfig.activeView === 'day' ? 'bg-gray-900 hover:bg-gray-900 hover:text-white text-white' : 'text-gray-400']" @click="changeView('day')">Day</button>
             </div>
         </div>
+
         <template v-if="loadingMeetings">
             <div class="flex items-center justify-center h-[450px]">
                 <span class="loader-calendar"></span>
@@ -277,13 +311,15 @@ const meetingDetails = ref<boolean>(false)
                 :disable-views="calendarConfig.disableViews"
                 :active-view="calendarConfig.activeView"
                 :events-on-month-view="calendarConfig.eventOnMonthView"
-                min-date="2024/01/01"
-                :time-from="8 * 60"
-                :time-to="19 * 60"
+                :min-date="calendarConfig.minDate"
+                :max-date="calendarConfig.maxDate"
+                :time-from="calendarConfig.timeFrom"
+                :time-to="calendarConfig.timeTo"
                 :time-step="calendarConfig.timeStep"
                 :snap-to-time="calendarConfig.timeStep"
                 :time-cell-height="calendarConfig.timeCellHeight"
                 :events="filtredMeetings"
+                :special-hours="disabledHours"
                 :disable-days="calendarConfig.disableDays"
                 :today-button="false"
                 :editable-events="calendarConfig.editableEvents"
@@ -291,7 +327,6 @@ const meetingDetails = ref<boolean>(false)
                 :sticky-split-labels="false"
                 :on-event-click="onEventClick"
                 :cell-click-hold="false"
-                @ready="logEvents($event)"
                 @view-change="viewChange($event)"
                 @cell-click="cellClick('click', $event)"
                 @cell-dblclick="cellClick('dblclick', $event)"
@@ -301,30 +336,35 @@ const meetingDetails = ref<boolean>(false)
                 </template>
 
                 <template #event="{ event, view }">
+
+                    <CalendarCard :view="view" :meeting="event" />
                     
-                    <div v-if="view === 'week'">
+                    <!-- <div class="text-xs" v-if="view === 'week'">
                         <div class="font-semibold flex items-center gap-x-1">
-                            <span>{{ event.content.hour }}</span>
-                            <span class="w-4 h-4 rounded-full bg-current block"></span>
-                            <span>{{ `+${event.content.guests}` }}</span>
+                            <span>{{ event.content.startHour }}</span>
+                            <span>{{ `(+${event.content.guests})` }}</span>
                         </div>
                         <div>
-                            <span class="title">{{ event.content.title }} - </span>
-                            <span class="title font-semibold leading-4">{{ event.content.info }}</span>
+                            <span class="title block line-clamp-1">{{ event.content.title }}</span>
+                            <span v-if="authStore.externalAccountsSmall" class="title font-semibold leading-4 line-clamp-1">{{ getExternalAccountLabel(event.content.externalAccountIds, authStore.externalAccountsSmall) }}</span>
                         </div>
                     </div>
 
                     <div v-if="view === 'day'">
                         <div class="font-semibold flex items-center gap-x-1">
-                            <span>{{ event.content.hour }}</span>
-                            <span class="w-4 h-4 rounded-full bg-current block"></span>
-                            <span>{{ `+${event.content.guests}` }}</span>
+                            <span>{{ event.content.startHour }}</span>
+                            <span>{{ `(+${event.content.guests})` }}</span>
                         </div>
-                        <div class="flex gap-x-4">
+                        <div class="flex items-center gap-x-2">
                             <span>{{ event.content.title }}</span>
-                            <span class="title font-semibold leading-4">{{ event.content.info }}</span>
+                            <span> - </span>
+                            <span v-if="authStore.externalAccountsSmall" class="title font-semibold leading-4 line-clamp-1">{{ getExternalAccountLabel(event.content.externalAccountIds, authStore.externalAccountsSmall) }}</span>
+                            <template v-if="event.content.organizer">
+                                <span> - </span>
+                                <span>{{ `Organizer : ${event.content.organizer}` }}</span>
+                            </template>
                         </div>
-                    </div>
+                    </div> -->
 
                 </template>
             </vue-cal>
@@ -336,90 +376,16 @@ const meetingDetails = ref<boolean>(false)
                     <span class="loader-drawer"></span>
                 </div>
             </template>
-            <template v-else-if="selectedEvent">
-                <h5 class="drawer-section-title">
-                    <span>
-                        <i class="pi pi-info-circle"></i>
-                        Infos
-                    </span>
-                </h5>
-                <ul class="list">
-                    <li>
-                        <span>ID</span>
-                        <span>{{ selectedEvent.meeting_id }}</span>
-                    </li>
-                    <li>
-                        <span>Date</span>
-                        <span>{{ formatDate(selectedEvent.start_date, 'DD/MM/YYYY') }}</span>
-                    </li>
-                    <li>
-                        <span>Hour</span>
-                        <span>{{ formatDate(selectedEvent.start_date, 'HH:mm') }} - {{ formatDate(selectedEvent.end_date, 'HH:mm') }}</span>
-                    </li>
-                    <li>
-                        <span>Area</span>
-                        <span>{{ selectedEvent.area.label }}</span>
-                    </li>
-                    <li>
-                        <span>Market</span>
-                        <span>{{ selectedEvent.market.label }}</span>
-                    </li>
-                    <li>
-                        <span>Guests count</span>
-                        <span>{{ selectedEvent.guests && `${selectedEvent.guests.length}+` }}</span>
-                    </li>
-                    <li class="items-center">
-                        <span>Status</span>
-                        <span :class="['badge', meetingStatus(selectedEvent.status).cls]">{{ meetingStatus(selectedEvent.status).label }}</span>
-                    </li>
-                </ul>
-
-                <div v-if="selectedEvent.organizer" class="mt-4">
-                    <h5 class="drawer-section-title">
-                        <span>
-                            <i class="pi pi-user"></i>
-                            Organizer
-                        </span>
-                    </h5>
-                    <ul class="list">
-                        <li>
-                            <span>Full name</span>
-                            <span>{{ `${selectedEvent.organizer.first_name} ${selectedEvent.organizer.last_name}` }}</span>
-                        </li>
-                        <li>
-                            <span>Role</span>
-                            <span>{{ selectedEvent.organizer.role }}</span>
-                        </li>
-                    </ul>
-                </div>
-
-                <div v-if="selectedEvent.guests" class="mt-4">
-                    <h5 class="drawer-section-title">
-                        <span>
-                            <i class="pi pi-users"></i>
-                            Guests ({{ selectedEvent.guests.length }})
-                        </span>
-                    </h5>
-                    <div v-for="guest in selectedEvent.guests" :key="guest.id" class="bg-slate-50 border border-gray-200 p-3 rounded-md mb-3">
-                        <ul class="list">
-                            <li>
-                                <span>Full name</span>
-                                <span>{{ `${guest.first_name} ${guest.last_name}` }}</span>
-                            </li>
-                            <li>
-                                <span>Email</span>
-                                <span>{{ guest.email }}</span>
-                            </li>
-                            <li>
-                                <span>Title</span>
-                                <span>{{ guest.position }}</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-            </template>
+            <MeetingDetails 
+                v-else-if="selectedEvent" 
+                :meeting="selectedEvent"
+                @update-edited-meeting="getEditedMeeting"
+                @update-edited-guests-meeting="getEditedGuestsMeeting"
+                @update-canceled-meeting="getCanceledMeeting"
+            />
         </Drawer>
+
+        <Toast position="top-center" group="cancel-meeting" />
 
     </div>
 </template>
@@ -447,14 +413,13 @@ const meetingDetails = ref<boolean>(false)
 /* .vuecal__event .title { @apply line-clamp-1 }
 .vuecal__event:not(.disabled):hover .title { @apply line-clamp-none } */
 
-.sko { @apply bg-blue-50/50 text-blue-700 border border-blue-100 border-l-4 border-l-blue-300 }
-.em { @apply bg-orange-50/50 text-orange-700 border border-orange-100 border-l-4 border-l-orange-300 }
-.eur { @apply bg-lime-50/50 text-lime-700 border border-lime-100 border-l-4 border-l-lime-300  }
-.cga { @apply bg-teal-50/50 text-teal-700 border border-teal-100 border-l-4 border-l-teal-300  }
-.nam { @apply bg-cyan-50/50 text-cyan-700 border border-cyan-100 border-l-4 border-l-cyan-300  }
-.jap { @apply bg-indigo-50/50 text-indigo-700 border border-indigo-100 border-l-4 border-l-indigo-300  }
-.lam { @apply bg-purple-50/50 text-purple-700 border border-purple-100 border-l-4 border-l-purple-300  }
-.eur { @apply bg-pink-50/50 text-pink-700 border border-pink-100 border-l-4 border-l-pink-300  }
+.eur { @apply bg-blue-50 text-blue-700 border border-blue-100 border-l-4 border-l-blue-300  }
+.em { @apply bg-indigo-50 text-indigo-700 border border-indigo-100 border-l-4 border-l-indigo-300 }
+.sko { @apply bg-gray-100 text-gray-700 border border-gray-100 border-l-4 border-l-gray-300 }
+.nam { @apply bg-pink-50 text-pink-700 border border-pink-100 border-l-4 border-l-pink-300  }
+.gca { @apply bg-green-50 text-green-700 border border-green-100 border-l-4 border-l-green-300  }
+.jap { @apply bg-emerald-50 text-emerald-700 border border-emerald-100 border-l-4 border-l-emerald-300  }
+.lam { @apply bg-orange-50 text-orange-700 border border-orange-100 border-l-4 border-l-orange-300  }
 
 .vuecal__heading { @apply !h-auto }
 .weekday-label { @apply !flex !flex-col !items-start pb-3 pt-2 }
@@ -467,7 +432,21 @@ const meetingDetails = ref<boolean>(false)
     color: #999;
 }
 
-.vuecal__cell--disabled { @apply bg-gray-100 }
+.vuecal__cell--disabled { @apply bg-red-50 }
+
+.closed {
+    background: #f6f6f6 
+    repeating-linear-gradient(
+        -45deg, 
+        rgb(200 200 200 / 25%), 
+        rgba(169, 169, 169, 0.25) 5px, 
+        rgba(125, 125, 125, 0) 5px,
+        rgba(255, 255, 255, 0) 15px
+    );
+    color: #aaaaaa;
+    border: 1px solid #dadada;
+    cursor: not-allowed;
+}
 
 .loader-calendar {
     width: 48px;

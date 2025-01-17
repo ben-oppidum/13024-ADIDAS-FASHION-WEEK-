@@ -30,8 +30,8 @@ const handleIconClick = (node: ComponentInternalInstance) => {
 // Login
 const errorMessage = ref<string | null>(null);
 const state = ref<State>({
-    email: 'john.smith@oppidum.fr',
-    password: '123456',
+    email: '',
+    password: '',
 })
 
 const setLogin = async () => {
@@ -68,9 +68,17 @@ const setLogin = async () => {
     <div class="page-wrap h-screen flex items-center justify-center bg-slate-50">
         <div class="container">
             <div class="max-w-lg mx-auto -mt-24">
-                <h1 class="text-4xl text-center mb-6">Login</h1>
+                <div class="mb-4 text-center">
+                    <h1 class="text-4xl uppercase mb-6">
+                    Paris Fashion Week - 2025<br />
+                        <span class="font-light">Administration Platform</span>
+                    </h1>
+                    <p class="mb-4">
+                        <span class="text-primary font-semibold">Welcome to the guest and meeting management platform for PARIS FASHION WEEK - 2025</span><br /><br />
+                        Please enter your personal login credentials that have been provided to you :
+                    </p>
+                </div>
                 <div class="p-4 bg-white border border-gray-200 rounded-lg">
-                    <p class="mb-4">Lorem ipsum dolor sit amet consectetur adipisicing elit. Veritatis, quisquam.</p>
                     <FormKit type="form" @submit="setLogin" :actions="false">
                         <div class="form-group">
                             <FormKit
@@ -98,7 +106,7 @@ const setLogin = async () => {
                             />
                         </div>
 
-                        <Message v-if="errorMessage" severity="error">{{ errorMessage }}</Message>
+                        <Message v-if="errorMessage" severity="error" class="mb-3">{{ errorMessage }}</Message>
 
                         <div class="form-group !mb-0">
                             <Button 

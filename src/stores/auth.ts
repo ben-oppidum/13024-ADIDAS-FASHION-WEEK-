@@ -1,15 +1,16 @@
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import axios from 'axios'
+
+import { useExternalAccount } from '@/composables/useExternalAccount'
+import type { UseExternalAccountReturn } from '@/composables/useExternalAccount'
 
 import { axiosHeader } from '@/functions'
 import { endPoint } from '@/stores/environment'
 import type { User } from '@/interfaces/user'
 
-// TS
-interface ErrorResponse {
-    message: string;
-}
+// Get External Account
+const { externalAccountsSmall, getExternalAccount }: UseExternalAccountReturn = useExternalAccount(false)
 
 export const useAuthStore = defineStore('auth', () => {
     // User State
@@ -30,6 +31,9 @@ export const useAuthStore = defineStore('auth', () => {
                 const header = axiosHeader()
                 const response = await axios.get(endPoint.auth, header);
                 user.value = response.data
+
+                // Get External Accounts
+                await getExternalAccount(`less=true`)
         
             } catch (error) {
                 if (axios.isAxiosError(error) && error.response && error.response.data) console.log(error.response.data)
@@ -43,12 +47,22 @@ export const useAuthStore = defineStore('auth', () => {
     // Check if the user is an Admin
     const isAdmin = computed(() => user.value?.role_id === 1 ? true : false)
 
+    // Check if the user is an Admin
+    const isSale = computed(() => user.value?.role_id === 2 || user.value?.role_id === 3 ? true : false)
+
     // Set Logout Function
     const setLogOut = () => {
-        console.log('Logeed');
         window.localStorage.clear();
         window.location.href = "/login"
     }
 
-    return { user, isAdmin, getAuth, setAuth, setLogOut }
+    return { 
+        user,
+        externalAccountsSmall,
+        isAdmin,
+        isSale,
+        getAuth, 
+        setAuth, 
+        setLogOut 
+    }
 })

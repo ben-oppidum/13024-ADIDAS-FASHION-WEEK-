@@ -10,6 +10,9 @@ export default defineConfig({
         vue(),
         vueDevTools(),
     ],
+    server: {
+        port: 5174,
+    },
     resolve: {
         extensions: ['.js', '.ts', '.vue', '.json'],
         alias: {
